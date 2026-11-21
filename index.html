@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#f6f7fb">
+<meta name="theme-color" content="#f4f9f8">
 <title>SoftX · NEXUS Science</title>
 <link rel="stylesheet" href="/style.css">
 <script src="/app.js" type="module"></script>
@@ -13,20 +13,24 @@
   <aside class="sidebar">
     <a class="brand" href="#library"><span class="brand-icon" data-icon="logo"></span><span><strong>SoftX<span class="brand-dot">.</span></strong><small>NEXUS SCIENCE</small></span></a>
     <div class="nav-label">РАБОЧАЯ ОБЛАСТЬ</div>
-    <nav id="nav">
+    <nav id="nav" aria-label="Разделы SoftX">
       <a href="#library" data-nav="library"><i data-icon="library"></i>Публикации</a>
-      <a href="#results" data-nav="results"><i data-icon="table"></i>Данные</a>
+      <a href="#results" data-nav="results"><i data-icon="database"></i>Данные</a>
       <a href="#xray" data-nav="xray"><i data-icon="scan"></i>PDF X-Ray</a>
       <a href="#graphs" data-nav="graphs"><i data-icon="chart"></i>Graph Hunter</a>
       <a href="#detective" data-nav="detective"><i data-icon="shield"></i>Science Detective</a>
       <a href="#compare" data-nav="compare"><i data-icon="compare"></i>Сопоставление</a>
+      <div class="nav-label secondary-label">АРТЕФАКТЫ</div>
+      <a href="#export" data-nav="export"><i data-icon="download"></i>Экспорт данных</a>
     </nav>
-    <div class="nav-label secondary-label">АРТЕФАКТЫ</div>
-    <nav><a href="#export" data-nav="export"><i data-icon="download"></i>Экспорт данных</a></nav>
     <div class="sidebar-foot"><span class="foot-icon" data-icon="database"></span><span><b>Локальный корпус</b><small>Рабочая область</small></span></div>
   </aside>
   <div class="work">
-    <header class="top"><div><span class="crumb">Рабочая область</span><i data-icon="chevron"></i><strong id="section-name">Публикации</strong></div><button id="upload-open" class="primary"><i data-icon="plus"></i> Загрузить PDF</button></header>
+    <header class="top">
+      <div class="breadcrumbs"><a href="#library" aria-label="Библиотека публикаций"><i data-icon="home"></i></a><span class="crumb">Рабочая область</span><i data-icon="chevron"></i><strong id="section-name">Публикации</strong></div>
+      <form class="search top-search" id="global-search"><i data-icon="search"></i><input name="query" aria-label="Поиск по корпусу" placeholder="Поиск по публикациям, материалам, DOI, авторам…"><kbd aria-hidden="true"></kbd></form>
+      <div class="top-actions"><a class="top-issues" href="#detective" aria-label="Замечания" title="Замечания"><i data-icon="bell"></i></a><button id="upload-open" aria-label="Загрузить PDF"><i data-icon="upload"></i><span>Загрузить PDF</span></button></div>
+    </header>
     <main id="main"></main>
   </div>
 </div>

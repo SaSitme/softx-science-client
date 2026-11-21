@@ -5,6 +5,11 @@ const fmt = v => v == null ? '—' : Number(v.toPrecision(9)).toString();
 const routes = {library:'Публикации',results:'Данные',xray:'PDF X-Ray',graphs:'Graph Hunter',detective:'Science Detective',compare:'Сопоставление',export:'Экспорт данных'};
 const paths = {
   logo:'<path d="M4 19 12 4l8 15H4Z M8 13l4 6 4-6M8 13h8"/>',
+  home:'<path d="m3 10 9-7 9 7M5 9v11h5v-6h4v6h5V9"/>',
+  bell:'<path d="M5 17h14l-2-3V9a5 5 0 0 0-10 0v5l-2 3ZM10 20a2 2 0 0 0 4 0"/>',
+  flask:'<path d="M9 3h6m-5 0v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3M8 15h8"/>',
+  list:'<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
+  grid:'<path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/>',
   library:'<path d="M4 5h4v15H4zM10 5h4v15h-4zM16 6l3.5-.7L22 20l-3.5.6z"/>',
   table:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M3 14h18M10 9v11"/>',
   scan:'<path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m8 0h3a2 2 0 0 0 2-2v-3M7 12h10m-9-4h8m-8 8h8"/>',
@@ -32,6 +37,54 @@ const corpus = {included:['В корпусе','good'],excluded_tandem:['Танд
 const processing = {completed:['Обработан','good'],partial:['Частично','warn'],failed:['Ошибка PDF','bad'],queued:['В очереди',''],processing:['Обработка','violet']};
 const origins = {primary:'Первичный',cited:'Цитируемый'};
 const roles = {value:'Значение',unit:'Единица',sample_label:'Образец',condition:'Условие'};
+const metricLabels = {
+  PCE:'Коэффициент полезного действия',
+  Voc:'Напряжение холостого хода',
+  Jsc:'Плотность тока короткого замыкания',
+  FF:'Коэффициент заполнения',
+  Rs:'Последовательное сопротивление',
+  Rsh:'Шунтирующее сопротивление',
+  HI:'Индекс гистерезиса',
+  Jsc_EQE:'Плотность тока короткого замыкания по внешней квантовой эффективности',
+  T80:'Время снижения эффективности до 80%',
+  Eg:'Ширина запрещённой зоны',
+  Pin:'Плотность мощности падающего света'
+};
+const metricLabel = code => Object.hasOwn(metricLabels,code)?`${metricLabels[code]} (${code})`:code;
+const fieldLabels = {
+  publication_code:'Код публикации', publication_id:'Идентификатор публикации', pdf_version_id:'Версия PDF',
+  id:'Идентификатор записи', title:'Название публикации', year:'Год', doi:'DOI', authors:'Авторы', journal:'Журнал',
+  corpus_status:'Статус в корпусе', corpus_reason:'Основание решения', corpus_manual:'Решение принято вручную', is_fixture:'Тестовый документ',
+  metric_name:'Показатель', metric_value:'Значение', metric_unit:'Единица измерения', device_label:'Обозначение прибора',
+  scan_direction:'Направление развёртки', aggregation:'Тип агрегации', result_origin:'Происхождение результата',
+  raw_value:'Значение в публикации', raw_unit:'Единица в публикации', normalized_value:'Нормализованное значение',
+  normalized_unit:'Единица после нормализации', spread_value:'Разброс значений', n_devices:'Число приборов',
+  time_point:'Момент измерения', time_unit:'Единица времени', source_page:'Страница PDF', source_table:'Таблица в статье',
+  source_figure:'Рисунок в статье', source_text:'Фрагмент источника', extraction_status:'Статус проверки',
+  extraction_method:'Способ извлечения', device_id:'Идентификатор прибора', measurement_id:'Идентификатор измерения',
+  material_id:'Идентификатор материала', cited_doi:'DOI цитируемой публикации', cited_publication_id:'Идентификатор цитируемой публикации',
+  duplicate_of:'Дублируемая запись', note:'Примечание', value_state:'Состояние значения',
+  range_min:'Нижняя граница диапазона', range_max:'Верхняя граница диапазона', inequality_op:'Знак неравенства',
+  material_name_raw:'Название материала в статье', formula_normalized:'Химическая формула', material_class:'Класс материала',
+  dimensionality:'Размерность материала', additives:'Добавки', bandgap_value:'Ширина запрещённой зоны',
+  bandgap_unit:'Единица ширины запрещённой зоны', bandgap_method:'Метод определения ширины запрещённой зоны',
+  device_role:'Роль прибора', device_type:'Тип прибора', architecture:'Архитектура', substrate_type:'Тип подложки',
+  active_area:'Активная площадь', area_unit:'Единица площади', area_definition:'Определение площади', encapsulation:'Инкапсуляция',
+  layer_order:'Порядок слоя', layer_function:'Функция слоя', layer_material:'Материал слоя',
+  layer_thickness:'Толщина слоя', thickness_unit:'Единица толщины', deposition_method:'Метод нанесения',
+  annealing_temperature:'Температура отжига', annealing_time:'Время отжига', atmosphere:'Атмосфера обработки',
+  measurement_type:'Тип измерения', spectrum:'Спектр освещения', light_intensity:'Интенсивность освещения',
+  light_intensity_unit:'Единица интенсивности', intensity_source_id:'Источник интенсивности освещения',
+  scan_rate:'Скорость развёртки', mask_used:'Использована маска', certified:'Сертификация', temperature:'Температура измерения',
+  stability_protocol:'Протокол испытания стабильности', stress_conditions:'Условия испытания',
+  batch_label:'Обозначение партии', condition_label:'Обозначение условий',
+  rule_code:'Код правила', severity:'Серьёзность', compared_values:'Сравниваемые значения', threshold:'Допуск или порог',
+  description:'Описание', hypothesis:'Гипотеза для проверки', resolution_status:'Статус замечания', updated_at:'Последнее обновление',
+  plot_dataset:'Данные графика'
+};
+const fieldLabel = key => Object.hasOwn(fieldLabels,key)?fieldLabels[key]:key.replaceAll('_',' ');
+const scanLabels = {reverse:'Обратный ход',forward:'Прямой ход'};
+const aggregationLabels = {unknown:'Не указана',champion:'Лучший прибор',mean:'Среднее',median:'Медиана',single:'Один прибор'};
 const badge = (label, color='') => '<span class="badge '+color+'">'+e(label)+'</span>';
 const tag = (set, key) => badge(...(set[key] || [key]));
 const btn = (iconName, title, extra='') => '<button class="icon-btn" aria-label="'+e(title)+'" title="'+e(title)+'" '+extra+'>'+i(iconName)+'</button>';
@@ -39,6 +92,7 @@ const options = (map, selected='') => Object.entries(map).map(([value,text]) => 
 const sel = (name, label, map, value) => '<select name="'+name+'" aria-label="'+label+'">'+options(map,value)+'</select>';
 const fileRoute = p => '#xray/'+p.version_id;
 const state = {publications:[], results:[], active_issues:0, page:1, zoom:1, rotation:0, current:null, roles:new Set(Object.keys(roles)), filter:{}, routeToken:0};
+const phone = window.matchMedia('(max-width: 720px)');
 let toastTimer;
 function toast(message) {
   const node=$('#toast'); node.textContent=message; node.style.display='block';
@@ -66,9 +120,13 @@ function showForm(title, html, save) {
 }
 const pageIntro = (title, description, actions='') => '<div class="page-intro"><div><h1>'+title+'</h1><p>'+description+'</p></div>'+actions+'</div>';
 const empty = message => '<div class="empty">'+e(message)+'</div>';
+const tableHint='<p class="table-hint">Проведите по таблице вбок, чтобы увидеть остальные столбцы.</p>';
 const main=$('#main');
 let pollTimer;
-async function fetchLibrary() {Object.assign(state,await api('/api/library'));}
+async function fetchLibrary() {
+  Object.assign(state,await api('/api/library'));
+  $('.top-issues').classList.toggle('has-issues',state.active_issues>0);
+}
 function schedule() {
   clearTimeout(pollTimer);
   if (!state.publications.some(p=>['processing','queued'].includes(p.processing_status))) return;
@@ -77,6 +135,7 @@ function schedule() {
     try {
       await fetchLibrary();
       if (route==='#library'||!route) refreshLibrary();
+      if (location.hash==='#graphs') await routeView(true);
       if (route==='#xray' && state.detail && ['queued','processing'].includes(state.detail.pdf.processing_status)) await routeView(true);
       schedule();
     } catch(ex) {toast(ex.message);}
@@ -87,7 +146,12 @@ async function routeView(preserve=false) {
   const [requested,id,focus]=location.hash.slice(1).split('/');
   const name=routes[requested]?requested:'library';
   if (!preserve) window.scrollTo(0,0);
-  $$('[data-nav]').forEach(el=>el.classList.toggle('active',el.dataset.nav===name));
+  $$('[data-nav]').forEach(el=>{
+    const active=el.dataset.nav===name;
+    el.classList.toggle('active',active);
+    if(active) el.setAttribute('aria-current','page');
+    else el.removeAttribute('aria-current');
+  });
   $('#section-name').textContent=routes[name];
   try {
     if (name==='library') return library();
@@ -108,13 +172,13 @@ async function routeView(preserve=false) {
           if(ref) {
             state.page=ref.source_page;state.currentRef=ref.id;state.graphPoint=null;state.roles.add(ref.fragment_role);
             state.current=detail.links.find(l=>l.source_reference_id===ref.id)?.result_id||null;
-            renderRecords();renderPdf(true);
+            renderRecords();renderPdf(true);showPdfOnPhone();
           }
         } else selectResult(focus);
       }
       return;
     }
-    if (name==='graphs' && !id) return pickPublication('Graph Hunter','Оцифровка и калибровка графиков из публикаций.','graphs');
+    if (name==='graphs' && !id) return pickPublication('Graph Hunter','Выберите публикацию с графиками.','graphs');
     if (name==='graphs') {
       const detail=await api('/api/pdf/'+id);
       if(token!==state.routeToken)return;
@@ -127,38 +191,6 @@ async function routeView(preserve=false) {
     main.innerHTML=pageIntro(routes[name],'Выберите публикацию в библиотеке.');
   } catch(ex) {if(token===state.routeToken) main.innerHTML=empty(ex.message);}
 }
-function drawHero() {
-  const canvas=$('#science-art');
-  if(!canvas) return;
-  const g=canvas.getContext('2d'), w=540,h=223;
-  const fade=g.createLinearGradient(0,0,w,0);fade.addColorStop(0,'#40338000');fade.addColorStop(.26,'#403380ff');
-  g.clearRect(0,0,w,h);
-  g.lineWidth=.65;
-  for(let x=22;x<w;x+=28) {g.strokeStyle='#b8adfc38';g.beginPath();g.moveTo(x,0);g.lineTo(x,h);g.stroke();}
-  for(let y=8;y<h;y+=22) {g.strokeStyle='#b8adfc33';g.beginPath();g.moveTo(0,y);g.lineTo(w,y);g.stroke();}
-  for(let row=0;row<7;row++) for(let col=0;col<13;col++) {
-    const x=182+col*24+(row%2)*12,y=21+row*28;
-    g.fillStyle=row%3===0?'#af9dff50':'#aba3f82c';g.beginPath();g.arc(x,y,1.55,0,7);g.fill();
-  }
-  function curve(base,color,dash,width) {
-    g.beginPath();g.strokeStyle=color;g.lineWidth=width;g.setLineDash(dash);
-    for(let x=0;x<=440;x+=3) {
-      const t=x/440, y=base+70*t**4+63*t**10;
-      g.lineTo(x+52,y);
-    }
-    g.stroke();g.setLineDash([]);
-  }
-  curve(36,'#a799ff80',[4,6],1.5);
-  curve(59,'#8a70fb',[],2);
-  const trace=g.createLinearGradient(52,0,492,0);trace.addColorStop(0,'#4ee6ff15');trace.addColorStop(.6,'#8efae7');trace.addColorStop(1,'#59eace');
-  g.shadowColor='#78f8d5';g.shadowBlur=8;curve(83,trace,[],2.6);g.shadowBlur=0;
-  for(const t of [.25,.48,.65,.8,.92]) {
-    const x=52+440*t,y=83+70*t**4+63*t**10;
-    g.fillStyle='#91ffe6';g.beginPath();g.arc(x,y,3.3,0,7);g.fill();
-    g.strokeStyle='#abfff47e';g.lineWidth=.85;g.beginPath();g.arc(x,y,7,0,7);g.stroke();
-  }
-  g.globalCompositeOperation='destination-in';g.fillStyle=fade;g.fillRect(0,0,w,h);g.globalCompositeOperation='source-over';
-}
 const stat = (glyph,count,label,tone='') => '<div class="stat"><span class="stat-icon '+tone+'" data-icon="'+glyph+'">'+icon(glyph)+'</span><span><b>'+count+'</b><small>'+label+'</small></span></div>';
 function updateStats() {
   const node=$('#stats');
@@ -168,87 +200,213 @@ function updateStats() {
     stat('table',state.results.length,'Извлечённые значения','blue')+
     stat('alert',state.active_issues,'Замечания','amber');
 }
+const publicationViews = {
+  all:['Все публикации','library'],
+  included:['В корпусе','check'],
+  completed:['Обработанные','layers'],
+  issues:['С замечаниями','alert']
+};
 function library() {
-  main.innerHTML='<section class="hero"><canvas id="science-art" width="540" height="223" aria-hidden="true"></canvas><div class="hero-copy"><div class="eyebrow">'+i('logo')+' ТОНКОПЛЁНОЧНАЯ ФОТОВОЛЬТАИКА</div><h1>Корпус публикаций</h1><p>Извлекайте данные солнечных элементов и проверяйте каждое значение по первоисточнику.</p><button class="ghost" id="hero-upload">'+i('upload')+' Загрузить публикации</button></div></section>'+
+  const filters=state.filter;
+  const classes=Object.fromEntries(state.publications.flatMap(p=>(p.material_class||'').split(',').filter(Boolean)).sort().map(v=>[v,v]));
+  main.innerHTML='<section class="hero"><div class="hero-copy"><div class="eyebrow">'+i('flask')+' ТОНКОПЛЁНОЧНАЯ ФОТОВОЛЬТАИКА</div><h1>Корпус публикаций</h1><p>Извлекайте данные солнечных элементов и проверяйте каждое значение по первоисточнику.</p><button class="ghost" id="hero-upload">'+i('upload')+' Загрузить публикации</button></div></section>'+
     '<div class="stats" id="stats"></div><div class="section-head"><div><h2>Библиотека публикаций</h2><p>PDF, результаты извлечения и решения по корпусу</p></div></div>'+
-    '<section class="card"><div class="toolbar"><label class="search">'+i('search')+'<input id="pub-search" aria-label="Поиск публикаций" placeholder="Название, DOI, материал…" value="'+e(state.filter.pub||'')+'"></label>'+
-    sel('corpus-filter','Статус корпуса',{'':'Все статусы',...Object.fromEntries(Object.entries(corpus).map(([k,v])=>[k,v[0]]))},state.filter.corpus||'')+
-    sel('processing-filter','Обработка',{'':'Вся обработка',...Object.fromEntries(Object.entries(processing).map(([k,v])=>[k,v[0]]))},state.filter.processing||'')+
+    '<div class="library-tabs" id="library-tabs" role="group" aria-label="Подборки публикаций">'+
+    Object.entries(publicationViews).map(([key,[label,glyph]])=>'<button type="button" data-library-tab="'+key+'">'+i(glyph)+'<span>'+label+'</span> <span data-tab-count></span></button>').join('')+
+    '</div><section class="card library-card"><div class="toolbar library-toolbar" id="library-toolbar"><label class="search">'+i('search')+'<input id="pub-search" aria-label="Поиск публикаций" placeholder="Поиск по названию, DOI, материалу, автору…" value="'+e(filters.pub||'')+'"></label>'+
+    sel('material-filter','Материал',{'':'Материал',...classes},filters['material-filter']||'')+
+    sel('corpus-filter','Статус корпуса',{'':'Корпус',...Object.fromEntries(Object.entries(corpus).map(([k,v])=>[k,v[0]]))},filters['corpus-filter']||'')+
+    sel('processing-filter','Обработка',{'':'Обработка',...Object.fromEntries(Object.entries(processing).map(([k,v])=>[k,v[0]]))},filters['processing-filter']||'')+
+    sel('sort','Сортировка',{'new':'Сначала новые','old':'Сначала старые','title':'По названию'},filters.sort||'new')+
+    '<div class="view-switch" role="group" aria-label="Вид библиотеки">'+btn('list','Список','data-library-layout="list"')+btn('grid','Карточки','data-library-layout="grid"')+'</div>'+
     '</div><div id="publication-rows"></div></section>';
   $('#hero-upload').onclick=openUpload;
-  $('#pub-search').oninput=ev=>{state.filter.pub=ev.target.value;refreshLibrary();};
-  $('[name=corpus-filter]').onchange=ev=>{state.filter.corpus=ev.target.value;refreshLibrary();};
-  $('[name=processing-filter]').onchange=ev=>{state.filter.processing=ev.target.value;refreshLibrary();};
-  drawHero();refreshLibrary();
+  $('#pub-search').oninput=ev=>{
+    filters.pub=ev.target.value;
+    $('#global-search input').value=filters.pub;
+    refreshLibrary();
+  };
+  $('#library-toolbar').onchange=ev=>{
+    if(ev.target.matches('select')) {
+      filters[ev.target.name]=ev.target.value;
+      refreshLibrary();
+    }
+  };
+  $('#library-tabs').onclick=ev=>{
+    const tab=ev.target.closest('[data-library-tab]');
+    if(!tab) return;
+    filters.libraryTab=tab.dataset.libraryTab;
+    for(const name of ['corpus-filter','processing-filter']) {
+      filters[name]='';
+      $(`[name="${name}"]`).value='';
+    }
+    refreshLibrary();
+  };
+  $('.view-switch').onclick=ev=>{
+    const choice=ev.target.closest('[data-library-layout]');
+    if(!choice) return;
+    filters.libraryLayout=choice.dataset.libraryLayout;
+    refreshLibrary();
+  };
+  refreshLibrary();
 }
 function refreshLibrary() {
-  updateStats();
   const target=$('#publication-rows');
   if(!target) return;
-  const q=(state.filter.pub||'').trim().toLowerCase();
-  const ps=state.publications.filter(p=>
-    [p.title,p.doi,p.filename,p.material_class,...state.results.filter(r=>r.publication_id===p.id).map(r=>[r.device_label,r.metric_name,r.source_text].join(' '))].join(' ').toLowerCase().includes(q)
-    && (!state.filter.corpus||p.corpus_status===state.filter.corpus) && (!state.filter.processing||p.processing_status===state.filter.processing));
-  target.innerHTML=(ps.length?'<div class="table-scroll"><table><thead><tr><th>Публикация</th><th>Материал</th><th>Корпус</th><th>Обработка</th><th>Значения</th><th aria-label="Действия"></th></tr></thead><tbody>'+
-    ps.map(p=>'<tr data-publication="'+p.version_id+'"><td><a class="article-cell" href="'+fileRoute(p)+'"><span class="file-icon" data-icon="file">'+icon('file')+'</span><span><b>'+e(p.title)+'</b><small>'+e(p.filename)+(p.is_fixture?' · тестовый PDF':'')+'</small></span></a></td>'+
-    '<td>'+e(p.material_class||'—')+'</td><td title="'+e(p.corpus_reason)+'">'+tag(corpus,p.corpus_status)+'</td><td title="'+e(p.error_message)+'">'+tag(processing,p.processing_status)+'</td><td>'+p.result_count+'</td>'+
-    '<td><div class="row-actions">'+btn('rotate','Повторить обработку','data-retry="'+p.version_id+'" '+(['queued','processing'].includes(p.processing_status)?'disabled':''))+
-    '<a class="button icon-btn" aria-label="Открыть PDF X-Ray" href="'+fileRoute(p)+'">'+i('chevron')+'</a></div></td></tr>').join('')+'</tbody></table></div>':empty(state.publications.length?'Нет публикаций по выбранным условиям.':'Загрузите PDF, чтобы создать корпус.'))+
-    '<div class="table-foot"><span>Показано '+ps.length+' из '+state.publications.length+'</span></div>';
+  updateStats();
+  const filters=state.filter, q=(filters.pub||'').trim().toLowerCase();
+  const tab=filters.libraryTab||'all', layout=filters.libraryLayout||(phone.matches?'grid':'list');
+  const issues=new Set(state.results.filter(r=>r.has_issues).map(r=>r.pdf_version_id));
+  const matches={
+    all:()=>true,
+    included:p=>p.corpus_status==='included',
+    completed:p=>p.processing_status==='completed',
+    issues:p=>issues.has(p.version_id)
+  };
+  $$('[data-library-tab]').forEach(button=>{
+    const key=button.dataset.libraryTab;
+    button.setAttribute('aria-pressed',String(key===tab));
+    $('[data-tab-count]',button).textContent='('+state.publications.filter(matches[key]).length+')';
+  });
+  $$('[data-library-layout]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.libraryLayout===layout)));
+  const sourceText=new Map();
+  if(q) for(const r of state.results) {
+    const fragments=sourceText.get(r.pdf_version_id)||[];
+    fragments.push(r.device_label,metricLabel(r.metric_name),r.source_text);
+    sourceText.set(r.pdf_version_id,fragments);
+  }
+  const publications=state.publications.filter(p=>matches[tab](p)
+    && (!q||[p.title,p.doi,p.filename,p.material_class,p.authors,...(sourceText.get(p.version_id)||[])].join(' ').toLowerCase().includes(q))
+    && (!filters['material-filter']||p.material_class?.split(',').includes(filters['material-filter']))
+    && (!filters['corpus-filter']||p.corpus_status===filters['corpus-filter'])
+    && (!filters['processing-filter']||p.processing_status===filters['processing-filter']));
+  if(filters.sort==='old') publications.reverse();
+  if(filters.sort==='title') publications.sort((a,b)=>a.title.localeCompare(b.title,'ru'));
+
+  const entry=p=>'<a class="article-cell" href="'+fileRoute(p)+'"><span class="file-icon" data-icon="file">'+icon('file')+'</span><span><b>'+e(p.title)+'</b><small>'+e(p.filename)+(p.is_fixture?' · тестовый PDF':'')+'</small></span></a>';
+  const actions=p=>'<div class="row-actions">'+btn('rotate','Повторить обработку','data-retry="'+p.version_id+'" '+(['queued','processing'].includes(p.processing_status)?'disabled':''))+
+    '<a class="button icon-btn" aria-label="Открыть PDF X-Ray" href="'+fileRoute(p)+'">'+i('chevron')+'</a></div>';
+  const corpusTag=p=>'<span title="'+e(p.corpus_reason)+'">'+tag(corpus,p.corpus_status)+'</span>';
+  const processTag=p=>'<span title="'+e(p.error_message)+'">'+tag(processing,p.processing_status)+'</span>';
+  let content;
+  if(!publications.length) content=empty(state.publications.length?'Нет публикаций по выбранным условиям.':'Загрузите PDF, чтобы создать корпус.');
+  else if(layout==='grid') content='<div class="publication-grid">'+publications.map(p=>'<article class="publication-card">'+entry(p)+
+    '<div class="publication-card-tags">'+corpusTag(p)+processTag(p)+'</div><div class="publication-card-footer"><span>'+e(p.material_class||'—')+' · Значения: '+p.result_count+'</span>'+actions(p)+'</div></article>').join('')+'</div>';
+  else content=tableHint+'<div class="table-scroll" tabindex="0" role="region" aria-label="Таблица публикаций"><table class="publication-table"><thead><tr><th>Публикация</th><th>Материал</th><th>Корпус</th><th>Обработка</th><th>Значения</th><th aria-label="Действия"></th></tr></thead><tbody>'+
+    publications.map(p=>'<tr data-publication="'+p.version_id+'"><td>'+entry(p)+'</td><td>'+e(p.material_class||'—')+'</td><td>'+corpusTag(p)+'</td><td>'+processTag(p)+'</td><td>'+p.result_count+'</td><td>'+actions(p)+'</td></tr>').join('')+'</tbody></table></div>';
+  target.innerHTML=content+'<div class="table-foot"><span>Показано '+publications.length+' из '+state.publications.length+'</span></div>';
 }
+const globalSearch=$('#global-search');
+const globalQuery=$('input',globalSearch);
+const applePlatform=/Mac|iPhone|iPad/.test(navigator.platform);
+$('kbd',globalSearch).textContent=applePlatform?'⌘ K':'Ctrl K';
+globalSearch.onsubmit=ev=>{
+  ev.preventDefault();
+  state.filter.pub=globalQuery.value;
+  if(!$('#pub-search')) location.hash='#library';
+  else {
+    $('#pub-search').value=globalQuery.value;
+    refreshLibrary();
+  }
+};
+window.addEventListener('keydown',ev=>{
+  if((ev.ctrlKey||ev.metaKey)&&ev.key.toLowerCase()==='k'&&!document.querySelector('dialog[open]')) {
+    ev.preventDefault();
+    globalQuery.focus();
+    globalQuery.select();
+  }
+});
 function pickPublication(title, description, route) {
+  const graphsOnly=route==='graphs';
+  const publications=state.publications.filter(p=>p.pages.length&&(!graphsOnly||p.plot_count>0));
+  const noPublications=graphsOnly?'Пока нет публикаций с графиками. График можно добавить вручную из PDF X-Ray.':'Пока нет обработанных публикаций.';
   main.innerHTML=pageIntro(title,description)+'<section class="card details">'+
-    (state.publications.filter(p=>p.pages.length).map(p=>'<p><a class="link" href="#'+route+'/'+p.version_id+'">'+e(p.title)+'</a></p>').join('')||empty('Пока нет обработанных публикаций.'))+'</section>';
+    (publications.map(p=>'<p><a class="link" href="#'+route+'/'+p.version_id+'">'+e(p.title)+'</a></p>').join('')||empty(noPublications))+'</section>';
 }
+const resultColumns=['publication_code','metric_name','metric_value','metric_unit','device_label','scan_direction','aggregation','result_origin','raw_value','raw_unit','normalized_value','normalized_unit','spread_value','n_devices','time_point','time_unit','source_page','source_table','source_figure','source_text','extraction_status','extraction_method','device_id','measurement_id','material_id','cited_doi','duplicate_of','note'];
 function allResults() {
   const classes=Object.fromEntries([...new Set(state.results.map(r=>r.material_class).filter(Boolean))].map(v=>[v,v]));
   main.innerHTML=pageIntro('Данные','Структурированные значения с привязкой к публикациям и приборам.')+
-    dataTabs('results')+'<section class="card"><div class="toolbar" id="results-filters"><label class="search">'+i('search')+'<input id="result-search" aria-label="Поиск данных" placeholder="Публикация, образец, метрика, фрагмент…" value="'+e(state.filter.q||'')+'"></label>'+
+    dataTabs('results')+'<section class="card"><div class="toolbar results-toolbar" id="results-filters"><label class="search">'+i('search')+'<input id="result-search" aria-label="Поиск данных" placeholder="Публикация, образец, метрика, фрагмент…" value="'+e(state.filter.q||'')+'"></label>'+
+    '<div class="view-switch" role="group" aria-label="Вид результатов">'+btn('list','Таблица результатов','data-result-layout="table"')+
+    btn('grid','Карточки результатов','data-result-layout="cards"')+'</div>'+
+    '<details class="result-filter-panel" '+(phone.matches?'':'open')+'><summary>Фильтры результатов</summary><div class="result-filter-fields">'+
     sel('material_class','Класс материала',{'':'Все материалы',...classes},state.filter.material_class)+
     sel('architecture','Архитектура',{'':'Все архитектуры','n-i-p':'n-i-p','p-i-n':'p-i-n',substrate:'substrate',superstrate:'superstrate'},state.filter.architecture)+
     sel('result_origin','Происхождение',{'':'Любое происхождение',...origins},state.filter.result_origin)+
     sel('extraction_status','Статус проверки',{'':'Любая верификация','Извлечено автоматически':'Извлечено автоматически','Подтверждено пользователем':'Подтверждено пользователем','Требует проверки':'Требует проверки'},state.filter.extraction_status)+
-    sel('extraction_method','Способ извлечения',{'':'Любой способ',local_ai_pdf_quote:'Предложения локального ИИ'},state.filter.extraction_method)+
+    sel('extraction_method','Способ извлечения',{'':'Любой способ',local_ai_pdf_quote:'Предложения локального ИИ',plot_calculation:'Расчёт по графику'},state.filter.extraction_method)+
     sel('has_issues','Замечания',{'':'Все замечания','1':'Есть замечания','0':'Без замечаний'},state.filter.has_issues)+
     sel('certified','Сертификация',{'':'Любая сертификация','1':'Сертифицировано','0':'Сертификация не подтверждена'},state.filter.certified)+
-    '</div><div id="result-rows"></div></section>';
-  $('#results-filters').onchange=ev=>{if(ev.target.name) state.filter[ev.target.name]=ev.target.value;refreshResults();};
+    '</div></details></div><div id="result-rows"></div></section>';
+  $('#results-filters').onchange=ev=>{
+    if(!ev.target.matches('select'))return;
+    state.filter[ev.target.name]=ev.target.value;
+    refreshResults();
+  };
   $('#result-search').oninput=ev=>{state.filter.q=ev.target.value;refreshResults();};
+  $('.results-toolbar .view-switch').onclick=ev=>{
+    const choice=ev.target.closest('[data-result-layout]');
+    if(!choice)return;
+    state.filter.resultLayout=choice.dataset.resultLayout;
+    refreshResults();
+  };
+  $('#result-rows').addEventListener('toggle',ev=>{
+    const details=ev.target;
+    if(!details.matches('[data-result-fields]')||!details.open||$('dl',details))return;
+    const record=state.results.find(r=>r.id===details.dataset.resultFields);
+    if(record) details.insertAdjacentHTML('beforeend','<dl>'+resultColumns.map(column=>
+      '<dt>'+e(fieldLabel(column))+'</dt><dd>'+e(tableText(column,record[column]))+'</dd>').join('')+'</dl>');
+  },true);
   refreshResults();
 }
 function refreshResults() {
   const q=(state.filter.q||'').trim().toLowerCase();
   const fields=['material_class','architecture','result_origin','extraction_status','extraction_method','has_issues','certified'];
-  const rs=state.results.filter(r=>[r.publication_code,r.publication_title,r.material_class,r.device_label,r.metric_name,r.source_text].join(' ').toLowerCase().includes(q)
+  const rs=state.results.filter(r=>[r.publication_code,r.publication_title,r.material_class,r.device_label,metricLabel(r.metric_name),r.source_text].join(' ').toLowerCase().includes(q)
     && fields.every(key=>!state.filter[key] || state.filter[key]===String(r[key] ?? (key==='certified'?0:''))));
-  const columns=['publication_code','metric_name','metric_value','metric_unit','device_label','scan_direction','aggregation','result_origin','raw_value','raw_unit','normalized_value','normalized_unit','spread_value','n_devices','time_point','time_unit','source_page','source_table','source_figure','source_text','extraction_status','extraction_method','device_id','measurement_id','material_id','cited_doi','duplicate_of','note'];
-  $('#result-rows').innerHTML=dataTable(rs,columns)+'<div class="table-foot">Найдено '+rs.length+'</div>';
-
+  const target=$('#result-rows');
+  if(!target)return;
+  const layout=state.filter.resultLayout||(phone.matches?'cards':'table');
+  $$('[data-result-layout]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.resultLayout===layout)));
+  target.innerHTML=(layout==='cards'&&rs.length?resultCards(rs):dataTable(rs,resultColumns))+'<div class="table-foot">Найдено '+rs.length+'</div>';
+}
+function resultCards(records) {
+  return '<div class="result-card-grid">'+records.map(r=>'<article class="result-card">'+
+    '<div class="result-card-head"><h2>'+e(metricLabel(r.metric_name))+'</h2><strong>'+(r.plot_id?'≈ ':'')+measurementValue(r)+'</strong></div>'+
+    '<p>'+e(r.publication_code||r.publication_title)+'</p>'+
+    (r.device_label?'<p>Прибор '+e(r.device_label)+(r.scan_direction?' · '+e(scanLabels[r.scan_direction]||r.scan_direction):'')+'</p>':'')+
+    '<div class="result-card-actions">'+resultBadge(r)+
+    (r.pdf_version_id?'<a class="button" href="#xray/'+e(r.pdf_version_id)+'/'+e(r.id)+'">'+i('scan')+' К источнику в PDF</a>':'')+'</div>'+
+    '<details data-result-fields="'+e(r.id)+'"><summary>Все поля</summary></details></article>').join('')+'</div>';
 }
 function resultBadge(r) {return badge(r.extraction_status,r.extraction_status.startsWith('Подтверждено')?'good':r.extraction_status.startsWith('Требует')?'warn':'violet');}
 function measurementValue(r) {return e((r.inequality_op||'')+(r.range_min==null?fmt(r.normalized_value??r.metric_value):fmt(r.range_min)+'–'+fmt(r.range_max)))+' '+e(r.normalized_unit??r.metric_unit);}
 function xray() {
-  const {pdf,publication,devices,measurements,layers,materials,audit}=state.detail;
+  const {pdf,publication,devices,measurements,layers,materials,audit,plots}=state.detail;
+  const canAddPlot=pdf.pages.length&&pdf.pv_extraction_enabled!==0&&!publication.corpus_status.startsWith('excluded');
+  const graphLink=plots.length||canAddPlot?'<a class="button" href="#graphs/'+pdf.id+(plots.length?'':'/new')+'">'+
+    i('chart')+(plots.length?' Graph Hunter':' Добавить график')+'</a>':'';
   const actions='<div class="row-actions"><a class="button" href="/api/pdf/'+pdf.id+'/original" target="_blank" rel="noopener">'+i('file')+' Оригинал PDF</a>'+
-    '<button id="corpus-edit">'+i('pencil')+' Решение по корпусу</button>'+btn('rotate','Повторить обработку','data-retry="'+pdf.id+'"')+'</div>';
+    graphLink+'<button id="corpus-edit">'+i('pencil')+' Решение по корпусу</button>'+btn('rotate','Повторить обработку','data-retry="'+pdf.id+'"')+'</div>';
   main.innerHTML='<p><a href="#library" class="link">Библиотека публикаций</a></p>'+
     pageIntro(e(publication.title),e(pdf.filename)+(publication.is_fixture?' · тестовый PDF':''),actions)+
     '<p>'+tag(corpus,publication.corpus_status)+' '+tag(processing,pdf.processing_status)+' '+e(publication.corpus_reason)+'</p>'+
     (pdf.error_message?'<div class="warning">Ошибка обработки: '+e(pdf.error_message)+'</div>':'')+
-    pdf.failed_pages.map(p=>'<div class="warning">'+(p.page?'Страница '+p.page+'. ':'')+e(p.reason)+'. Ручной просмотр полей: '+e(p.fields.join(', '))+'</div>').join('')+
+    pdf.failed_pages.map(p=>'<div class="warning">'+(p.page?'Страница '+p.page+'. ':'')+e(p.reason)+'. Ручной просмотр полей: '+e(p.fields.map(key=>Object.hasOwn(metricLabels,key)?metricLabel(key):fieldLabel(key)).join(', '))+'</div>').join('')+
     (pdf.pages.length?'<div class="xray-grid"><section class="card pdf-panel"><div class="toolbar" id="pdf-controls">'+
     btn('left','Предыдущая страница','id="pdf-prev"')+'<span id="pdf-pagination"></span>'+btn('chevron','Следующая страница','id="pdf-next"')+
     btn('minus','Уменьшить масштаб','id="pdf-minus"')+'<span id="pdf-zoom"></span>'+btn('plus','Увеличить масштаб','id="pdf-plus"')+
-    btn('rotate','Повернуть страницу','id="pdf-rotate"')+'<span id="pdf-angle"></span></div>'+
+    btn('rotate','Повернуть страницу','id="pdf-rotate"')+'<span id="pdf-angle"></span><button id="pdf-records" class="phone-only">'+i('list')+' Записи</button></div>'+
     '<div class="toolbar overlay-filters">'+Object.entries(roles).map(([k,v])=>'<label><input type="checkbox" data-role-filter="'+k+'" '+(state.roles.has(k)?'checked':'')+'><span class="role-swatch role-'+k+'"></span> '+v+'</label>').join('')+
     '</div><div class="pdf-scroll" id="pdf-scroll"></div></section><section class="card records-panel"><div class="toolbar"><strong>Извлечённые записи</strong><span class="badge violet">'+state.detail.results.length+'</span></div><div id="record-list" class="record-list"></div><div id="active-record"></div></section></div>':'')+
     '<details class="card details"><summary>Приборы, материалы и измерения · '+devices.length+' / '+materials.length+' / '+measurements.length+'</summary>'+
-    materials.map(m=>'<p><b>'+e(m.material_class)+'</b> · '+e(m.formula_normalized||m.material_name_raw)+(m.bandgap_value==null?'':' · Eg '+fmt(m.bandgap_value)+' '+e(m.bandgap_unit))+'</p>').join('')+
+    materials.map(m=>'<p><b>'+e(m.material_class)+'</b> · '+e(m.formula_normalized||m.material_name_raw)+(m.bandgap_value==null?'':' · '+metricLabel('Eg')+' '+fmt(m.bandgap_value)+' '+e(m.bandgap_unit))+'</p>').join('')+
     devices.map(d=>'<details><summary>'+e(d.device_label)+' · '+e([d.device_role,d.architecture,d.active_area&&d.active_area+' '+d.area_unit].filter(Boolean).join(' · '))+'</summary>'+
       layers.filter(l=>l.device_id===d.id).map(l=>'<p>'+e([l.layer_order,l.layer_function,l.layer_material,l.layer_thickness&&l.layer_thickness+' '+l.thickness_unit,l.deposition_method].filter(Boolean).join(' · '))+'</p>').join('')+
       measurements.filter(m=>m.device_id===d.id).map(m=>'<p>'+e([m.measurement_type,m.scan_direction,m.spectrum,m.light_intensity&&m.light_intensity+' '+m.light_intensity_unit,m.certified?'Сертифицировано':null].filter(Boolean).join(' · '))+'</p>').join('')+'</details>').join('')+'</details>'+
-    '<details class="card details"><summary>История изменений · '+audit.length+'</summary><div class="table-scroll"><table><thead><tr><th>Поле</th><th>Было</th><th>Стало</th><th>Автор</th><th>UTC</th></tr></thead><tbody>'+
-    audit.map(a=>'<tr><td>'+e(a.field_name)+'</td><td>'+e(a.old_value)+'</td><td>'+e(a.new_value)+'</td><td>'+e(a.author)+'</td><td>'+e(a.timestamp)+'</td></tr>').join('')+'</tbody></table></div></details>';
+    '<details class="card details"><summary>История изменений · '+audit.length+'</summary>'+tableHint+'<div class="table-scroll" tabindex="0" role="region" aria-label="Таблица истории изменений"><table><thead><tr><th>Поле</th><th>Было</th><th>Стало</th><th>Автор</th><th>UTC</th></tr></thead><tbody>'+
+    audit.map(a=>'<tr><td>'+e(fieldLabel(a.field_name))+'</td><td>'+e(a.old_value)+'</td><td>'+e(a.new_value)+'</td><td>'+e(a.author)+'</td><td>'+e(a.timestamp)+'</td></tr>').join('')+'</tbody></table></div></details>';
   $('#corpus-edit').onclick=()=>showForm('Решение по корпусу','<div class="form-grid"><label class="wide">Статус'+sel('corpus_status','Статус корпуса',Object.fromEntries(Object.entries(corpus).map(([k,v])=>[k,v[0]])),publication.corpus_status)+
     '</label><label class="wide">Основание<textarea name="corpus_reason" required rows="3">'+e(publication.corpus_reason)+'</textarea></label></div>',async form=>{
       await api('/api/publication/'+publication.id,json(Object.fromEntries(form))); await fetchLibrary(); await routeView(true); schedule();
@@ -259,6 +417,7 @@ function xray() {
   $('#pdf-minus').onclick=()=>{state.zoom=Math.max(.35,state.zoom-.2);renderPdf();};
   $('#pdf-plus').onclick=()=>{state.zoom=Math.min(3,state.zoom+.2);renderPdf();};
   $('#pdf-rotate').onclick=()=>{state.rotation=(state.rotation+90)%360;renderPdf();};
+  $('#pdf-records').onclick=()=>$('.records-panel').scrollIntoView({block:'start'});
   $$('.overlay-filters input').forEach(el=>el.onchange=()=>{if(el.checked)state.roles.add(el.dataset.roleFilter);else state.roles.delete(el.dataset.roleFilter);renderPdf();});
   renderRecords();renderPdf();
 }
@@ -285,7 +444,7 @@ function visibleSource(source,sources,links) {
       return preferred&&other.source_fragment===source.source_fragment
         &&other.bbox.every((coordinate,index)=>coordinate===source.bbox[index])&&sharesResult();
     }
-    if(other.source_type!==source.source_type) return false;
+    if(other.source_type!==source.source_type||source.id===state.currentRef) return false;
     const [x0,y0,x1,y1]=other.bbox;
     return x0>=left&&y0>=bottom&&x1<=right&&y1<=top&&x1-x0<right-left&&sharesResult();
   });
@@ -294,6 +453,7 @@ function renderPdf(scroll=false) {
   const {pdf,sources,links,results}=state.detail;
   const holder=$('#pdf-scroll'),meta=pdf.pages[state.page-1];
   if(!holder||!meta) return;
+  holder.dataset.viewportWidth=holder.clientWidth;
   const previous=[holder.scrollLeft,holder.scrollTop];
   const angle=(state.rotation+meta.rotation)%360, turned=angle===90||angle===270;
   const scale=Math.min(1.2,Math.max(250,holder.clientWidth-32)/(turned?meta.height:meta.width))*state.zoom;
@@ -301,20 +461,22 @@ function renderPdf(scroll=false) {
   const sourceLinks=links.reduce((map,link)=>{(map[link.source_reference_id] ||= []).push(link.result_id);return map;},{});
   const resultMap=Object.fromEntries(results.map(r=>[r.id,r]));
   const screen=(x,y)=>[(x-box[0])*scale*meta.user_unit,(box[3]-y)*scale*meta.user_unit];
-  const active=sources.filter(s=>s.source_page===state.page&&state.roles.has(s.fragment_role)&&sourceLinks[s.id]&&visibleSource(s,sources,links));
+  const isFocused=s=>s.id===state.currentRef||(!state.currentRef&&s.fragment_role==='value'&&sourceLinks[s.id]?.includes(state.current));
+  const active=sources.filter(s=>s.source_page===state.page&&state.roles.has(s.fragment_role)&&sourceLinks[s.id]&&visibleSource(s,sources,links))
+    .sort((a,b)=>Number(isFocused(a))-Number(isFocused(b)));
   const rectangles=active.map(s=>{
     const [x,y]=screen(s.bbox[0],s.bbox[3]),[x2,y2]=screen(s.bbox[2],s.bbox[1]);
     const linked=sourceLinks[s.id], r=resultMap[linked.includes(state.current)?state.current:linked[0]];
     const current=linked.includes(state.current)||s.id===state.currentRef;
-    const label=[roles[s.fragment_role],r.metric_name,measurementValue(r).replaceAll('&amp;','&'),r.device_label,r.scan_direction,origins[r.result_origin],r.confidence!=null?'Уверенность '+r.confidence:null].filter(Boolean).join(' · ');
-    return '<rect class="highlight-'+s.fragment_role+(current?' highlight-current':'')+'" data-ref="'+s.id+'" tabindex="0" role="button" aria-label="'+e(label)+'" x="'+x+'" y="'+y+'" width="'+Math.max(1,x2-x)+'" height="'+Math.max(3,y2-y)+'"><title>'+e(label)+'</title></rect>';
+    const label=[roles[s.fragment_role],metricLabel(r.metric_name),measurementValue(r).replaceAll('&amp;','&'),r.device_label,scanLabels[r.scan_direction]||r.scan_direction,origins[r.result_origin],r.confidence!=null?'Уверенность '+r.confidence:null].filter(Boolean).join(' · ');
+    return '<rect class="highlight-'+s.fragment_role+(current?' highlight-current':'')+(isFocused(s)?' highlight-focused':'')+'" data-ref="'+s.id+'" tabindex="0" role="button" aria-label="'+e(label)+'" x="'+x+'" y="'+y+'" width="'+Math.max(1,x2-x)+'" height="'+Math.max(3,y2-y)+'"><title>'+e(label)+'</title></rect>';
   }).join('');
   const marker=state.graphPoint?screen(...state.graphPoint):null;
   const selectedRef=state.currentRef&&sources.find(s=>s.id===state.currentRef&&s.source_page===state.page&&!sourceLinks[s.id]);
   let evidence='';
   if(selectedRef) {
     const [x,y]=screen(selectedRef.bbox[0],selectedRef.bbox[3]),[x2,y2]=screen(selectedRef.bbox[2],selectedRef.bbox[1]);
-    evidence='<rect id="condition-evidence" x="'+x+'" y="'+y+'" width="'+(x2-x)+'" height="'+Math.max(3,y2-y)+'" fill="#f5ba4660" stroke="#a76c00" stroke-width="2"/>';
+    evidence='<rect id="condition-evidence" class="highlight-focused" x="'+x+'" y="'+y+'" width="'+(x2-x)+'" height="'+Math.max(3,y2-y)+'"/>';
   }
   holder.innerHTML='<div class="pdf-page" style="width:'+v.width+'px;height:'+v.height+'px"><div style="position:absolute;width:'+w+'px;height:'+h+'px;transform-origin:0 0;transform:matrix('+v.matrix.join(',')+')">'+
     '<img src="/api/pdf/'+pdf.id+'/page/'+state.page+'?w='+Math.max(650,Math.min(2400,Math.ceil(w/300)*300))+'" alt="PDF, страница '+state.page+'" style="width:'+w+'px;height:'+h+'px">'+
@@ -322,10 +484,16 @@ function renderPdf(scroll=false) {
   $('#pdf-pagination').textContent=state.page+' / '+pdf.pages.length;
   $('#pdf-zoom').textContent=Math.round(state.zoom*100)+'%';
   $('#pdf-angle').textContent=angle+'°';
+  $$('[data-role-filter]').forEach(input=>{input.checked=state.roles.has(input.dataset.roleFilter);});
   $('#pdf-prev').disabled=state.page===1; $('#pdf-next').disabled=state.page===pdf.pages.length;
   holder.scrollTo(...previous);
   for(const node of $$('[data-ref]',holder)) {
-    const action=()=>{const ref=node.dataset.ref;const linked=sourceLinks[ref];state.currentRef=ref;selectResult(linked.includes(state.current)?state.current:linked[0],false);};
+    const action=()=>{
+      const ref=node.dataset.ref, linked=sourceLinks[ref];
+      state.currentRef=ref;
+      selectResult(linked.includes(state.current)?state.current:linked[0],false);
+      if(phone.matches)$('#active-record').scrollIntoView({block:'nearest'});
+    };
     node.onclick=action;
     node.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' ') {ev.preventDefault();action();}};
   }
@@ -337,12 +505,18 @@ function renderPdf(scroll=false) {
     }
   });
 }
+function showPdfOnPhone() {
+  if(phone.matches)$('#pdf-scroll')?.scrollIntoView({block:'nearest'});
+}
 function renderRecords() {
   const {results,sources,links,measurements,materials}=state.detail;
   const list=$('#record-list'), detail=$('#active-record');
   if(!list) return;
   const top=list.scrollTop;
-  list.innerHTML=results.map(r=>'<div class="record '+(r.id===state.current?'active':'')+'" data-result="'+r.id+'" tabindex="0" role="button" aria-label="'+e(r.metric_name+' '+(r.device_label||'')+' '+fmt(r.metric_value))+'"><span><b>'+e(r.metric_name)+'</b><small>'+e([r.device_label,r.scan_direction,origins[r.result_origin]].filter(Boolean).join(' · '))+'</small></span><span>'+measurementValue(r)+' '+(r.extraction_status.startsWith('Требует')?badge('Проверить','warn'):'')+'</span></div>').join('')||empty('На этой публикации пока нет записей.');
+  list.innerHTML=results.map(r=>{
+    const label=metricLabel(r.metric_name);
+    return '<div class="record '+(r.id===state.current?'active':'')+'" data-result="'+r.id+'" tabindex="0" role="button" aria-label="'+e([label,r.device_label,fmt(r.metric_value)].filter(Boolean).join(' · '))+'"><span><b>'+e(label)+'</b><small>'+e([r.device_label,scanLabels[r.scan_direction]||r.scan_direction,origins[r.result_origin]].filter(Boolean).join(' · '))+'</small></span><span>'+measurementValue(r)+' '+(r.extraction_status.startsWith('Требует')?badge('Проверить','warn'):'')+'</span></div>';
+  }).join('')||empty('На этой публикации пока нет записей.');
   list.scrollTop=top;
   $$('.record',list).forEach(node=>{
     node.onclick=()=>selectResult(node.dataset.result);
@@ -353,26 +527,30 @@ function renderRecords() {
   const refs=links.filter(l=>l.result_id===r.id).map(l=>sources.find(s=>s.id===l.source_reference_id)).filter(s=>s&&visibleSource(s,sources,links));
   const m=measurements.find(row=>row.id===r.measurement_id);
   const material=materials.find(row=>row.id===r.material_id);
-  const scanLabels={reverse:'Обратный ход',forward:'Прямой ход'};
   const context=[
     ['Образец',r.device_label],['Материал',material?.formula_normalized||material?.material_class],
     ['Измерение',m?.measurement_type],['Направление',scanLabels[m?.scan_direction]||m?.scan_direction],
     ['Спектр',m?.spectrum],['Освещённость',m?.light_intensity!=null?fmt(m.light_intensity)+' '+(m.light_intensity_unit||''):null],
     ['Скорость развертки',m?.scan_rate],['Температура',m?.temperature],['Протокол',m?.stability_protocol],
-    ['Условия испытания',m?.stress_conditions],['Агрегация',r.aggregation==='unknown'?null:r.aggregation],
+    ['Условия испытания',m?.stress_conditions],['Агрегация',r.aggregation==='unknown'?null:aggregationLabels[r.aggregation]||r.aggregation],
     ['Число приборов',r.n_devices],['Разброс',r.spread_value]
   ].filter(([,value])=>value!=null&&value!=='');
-  detail.innerHTML='<div class="details"><h3>'+e(r.metric_name)+' · '+measurementValue(r)+'</h3>'+
-    '<p>В статье <b>'+e(r.raw_value)+' '+e(r.raw_unit)+'</b> · '+e(r.value_state)+'</p><p>'+resultBadge(r)+'</p>'+
+  detail.innerHTML='<div class="details"><h3>'+e(metricLabel(r.metric_name))+' · '+measurementValue(r)+'</h3>'+
+    (r.plot_id?'<p><a class="link" href="#graphs/'+r.pdf_version_id+'/'+r.plot_id+'">Приближённое значение по графику</a></p>':
+      '<p>В статье <b>'+e(r.raw_value)+' '+e(r.raw_unit)+'</b> · '+e(r.value_state)+'</p>')+'<p>'+resultBadge(r)+'</p>'+
     (context.length?'<dl class="result-context">'+context.map(([label,value])=>'<dt>'+e(label)+'</dt><dd>'+e(value)+'</dd>').join('')+'</dl>':'')+
     (r.extraction_method==='local_ai_pdf_quote'?'<p>Найдено локальным ИИ. Проверьте связь показателя с источником.</p>':'')+
-    (r.formula?'<p>Расчёт · '+e(r.formula)+'</p><p>'+e(r.calculation_inputs?.reference||'')+'</p>':'')+
+    (r.formula?'<p>Расчёт · '+e(r.formula)+'</p>':'')+
+    (r.calculation_inputs?.uncertainty!=null?'<p>Погрешность оцифровки · ±'+fmt(r.calculation_inputs.uncertainty)+' '+e(r.normalized_unit)+'</p>':'')+
+    (r.calculation_inputs?.uncertainty_method?'<p>'+e(r.calculation_inputs.uncertainty_method)+'</p>':'')+
+    (r.calculation_inputs?.reference?'<p>'+e(r.calculation_inputs.reference)+' · '+(r.calculation_inputs.coverage_confirmed?'диапазон подтверждён':'интеграл в пределах кривой, полнота диапазона не подтверждена')+'</p>':'')+
+    (r.calculation_inputs?.error?'<p>'+e(r.calculation_inputs.error)+'</p>':'')+
     '<p>'+refs.map(s=>'<button class="icon-btn" data-focus-ref="'+s.id+'" title="'+e(s.source_fragment)+'">с. '+s.source_page+' · '+e(roles[s.fragment_role])+' · '+e(s.source_fragment?.slice(0,46)||'')+'</button>').join(' ')+'</p>'+
     '<p><button class="primary" id="record-edit">'+i('pencil')+' Проверить и исправить</button></p></div>';
   $('#record-edit').onclick=()=>editResult(r);
   $$('[data-focus-ref]').forEach(node=>node.onclick=()=>{
     const ref=sources.find(s=>s.id===node.dataset.focusRef);
-    state.page=ref.source_page;state.currentRef=ref.id;state.roles.add(ref.fragment_role);renderPdf(true);
+    state.page=ref.source_page;state.currentRef=ref.id;state.roles.add(ref.fragment_role);renderPdf(true);showPdfOnPhone();
   });
 }
 function selectResult(id, jump=true) {
@@ -383,10 +561,11 @@ function selectResult(id, jump=true) {
     const ids=new Set(links.filter(l=>l.result_id===id).map(l=>l.source_reference_id));
     state.currentRef=null;
     const refs=sources.filter(s=>ids.has(s.id)&&visibleSource(s,sources,links));
-    const ref=refs.find(s=>s.fragment_role==='value')||refs[0];
+    const ref=refs.find(s=>s.fragment_role==='value')||refs.find(s=>s.source_type==='figure')||refs[0];
     if(ref){state.page=ref.source_page;state.currentRef=ref.id;state.roles.add(ref.fragment_role);}
   }
   renderRecords();renderPdf(jump);
+  if(jump)showPdfOnPhone();
   const row=$('[data-result="'+id+'"]'), list=$('#record-list');
   if(row && list){const a=row.getBoundingClientRect(),b=list.getBoundingClientRect();if(a.top<b.top||a.bottom>b.bottom) list.scrollTop+=a.top-b.top-b.height/3;}
 }
@@ -394,13 +573,13 @@ function editResult(r) {
   const {devices,measurements}=state.detail;
   const deviceOptions=Object.fromEntries(devices.map(d=>[d.id,d.device_label+(r.candidate_device_ids.includes(d.id)?' · кандидат':'')]));
   const measurementsFor=id=>Object.fromEntries(measurements.filter(m=>m.device_id===id).map(m=>[m.id,(m.measurement_type||'Измерение')+' · '+(m.scan_direction||'ход не указан')+(r.candidate_measurement_ids.includes(m.id)?' · кандидат':'')]));
-  showForm('Верификация · '+e(r.metric_name),'<p>В публикации: <b>'+e(r.raw_value)+' '+e(r.raw_unit)+'</b></p><div class="form-grid">'+
+  showForm('Верификация · '+e(metricLabel(r.metric_name)),'<p>В публикации: <b>'+e(r.raw_value)+' '+e(r.raw_unit)+'</b></p><div class="form-grid">'+
     '<label>Значение<input class="field" name="metric_value" type="number" step="any" value="'+e(r.metric_value)+'"></label>'+
     '<label>Единица<input class="field" name="metric_unit" value="'+e(r.metric_unit)+'"></label>'+
     '<label>Прибор'+sel('device_id','Прибор',{'':'Не указан',...deviceOptions},r.device_id)+'</label>'+
     '<label>Измерение'+sel('measurement_id','Измерение',{'':'Не указано',...measurementsFor(r.device_id)},r.measurement_id)+'</label>'+
     '<label>Происхождение'+sel('result_origin','Происхождение',origins,r.result_origin)+'</label>'+
-    '<label>Агрегация'+sel('aggregation','Агрегация',{unknown:'Не указана',champion:'Лучший прибор',mean:'Среднее',median:'Медиана',single:'Один прибор'},r.aggregation)+'</label><label class="wide" id="cited-doi">DOI цитируемой публикации<input class="field" name="cited_doi" value="'+e(r.cited_doi)+'"></label></div>',
+    '<label>Агрегация'+sel('aggregation','Агрегация',aggregationLabels,r.aggregation)+'</label><label class="wide" id="cited-doi">DOI цитируемой публикации<input class="field" name="cited_doi" value="'+e(r.cited_doi)+'"></label></div>',
     async form=>{
       const body=Object.fromEntries(form);
       for(const key of ['metric_unit','device_id','measurement_id','metric_value']) if(body[key]==='') body[key]=null;
@@ -442,6 +621,17 @@ document.addEventListener('click',async ev=>{
 });
 const graphTypes = {JV:'Вольт-амперная характеристика',EQE:'Квантовая эффективность',
   PCE_vs_param:'КПД от параметра', thermal:'Термообработка', stability:'Стабильность', scatter:'Точечная диаграмма'};
+const digitizationLabels = {raster_figure:'Изображение из PDF',vector_pdf:'Векторная серия',manual_pending:'Ожидает оцифровки',
+  manual_calibration:'Ручная калибровка',manual_points:'Ручная оцифровка'};
+function plotResults(detail,plot) {
+  if(!plot)return '';
+  const results=detail.results.filter(r=>r.plot_id===plot.id&&r.normalized_value!=null);
+  if(!results.length)return ['JV','EQE','stability'].includes(plot.plot_type)
+    ?'<p class="warning">Показатели пока не рассчитаны. Проверьте калибровку, единицы осей и нужный участок кривой.</p>':'';
+  const entries=results.map(r=>'<a class="button" href="#xray/'+r.pdf_version_id+'/'+r.id+'">'+
+    e(metricLabel(r.metric_name))+' · ≈ '+measurementValue(r)+'</a>').join('');
+  return '<section class="card toolbar graph-results"><strong>Показатели по графику</strong>'+entries+'</section>';
+}
 function graphDefaults(detail) {
   return {source_page:1,plot_type:'JV',plot_bbox:null,axes:{x:{scale:'linear'},y:{scale:'linear'}},points:[],
           series_label:'Новая серия', pdf_version_id:detail.pdf.id};
@@ -449,6 +639,8 @@ function graphDefaults(detail) {
 function graphView(requested) {
   const detail=state.graphDetail, pdf=detail.pdf;
   const selected=detail.plots.find(p=>p.id===requested) || (!requested && detail.plots[0]);
+  const sourceFigure=selected&&detail.sources.find(s=>s.source_type==='figure'&&s.source_page===selected.source_page&&String(s.bbox)===String(selected.plot_bbox));
+  const pdfLink='#xray/'+pdf.id+(sourceFigure?'/ref,'+sourceFigure.id:'');
   const draft=selected?structuredClone(selected):graphDefaults(detail);
   if(!selected && requested==='new' && state.newGraphFrom) {
     const from=detail.plots.find(p=>p.id===state.newGraphFrom);
@@ -457,11 +649,13 @@ function graphView(requested) {
     state.newGraphFrom=null;
   }
   let tool='add', mark=null, firstCorner=null, selectedPoint=null, dragging=null;
-  main.innerHTML='<p><a class="link" href="#graphs">Все публикации</a></p>'+
-    pageIntro('Graph Hunter',e(detail.publication.title),'<a class="button" href="#xray/'+pdf.id+'">'+i('scan')+' PDF X-Ray</a>')+
-    '<div class="card toolbar graph-nav">'+sel('graph-series','Серия графика',{'new':'Новая серия',...Object.fromEntries(detail.plots.map(p=>[p.id,p.plot_type+' · рис. '+(p.source_figure||'—')+(p.panel_id?'('+p.panel_id+')':'')+' · '+p.series_label]))},selected?.id || 'new')+
-    '<button id="new-plot">'+i('plus')+' Новая серия</button>'+badge('Приближённые данные','warn')+
-    (selected?'<span class="muted-text push">'+e(selected.digitization_method)+'</span>':'')+'</div>'+
+  main.innerHTML='<p><a class="link" href="#graphs">Публикации с графиками</a></p>'+
+    pageIntro('Graph Hunter',e(detail.publication.title),'<a class="button" href="'+e(pdfLink)+'">'+i('scan')+(sourceFigure?' Рисунок в PDF':' PDF X-Ray')+'</a>')+
+    '<div class="card toolbar graph-nav">'+sel('graph-series','Серия графика',{'new':'Новая серия',...Object.fromEntries(detail.plots.map(p=>[p.id,graphTypes[p.plot_type]+' · рис. '+(p.source_figure||'—')+(p.panel_id?'('+p.panel_id+')':'')+' · с. '+p.source_page+' · '+p.series_label]))},selected?.id || 'new')+
+    '<button id="new-plot">'+i('plus')+' Новая серия</button>'+badge(selected?.digitization_method==='raster_figure'?'Ожидает оцифровки':'Приближённые данные','warn')+
+    (selected?'<span class="muted-text push">'+e(digitizationLabels[selected.digitization_method]||selected.digitization_method)+'</span>':'')+'</div>'+
+    (selected?.digitization_method==='raster_figure'?
+      '<p class="warning">Найден исходный рисунок. Если в нём несколько графиков, выделите нужный через «Задать область», затем укажите шкалы и добавьте точки.</p>':plotResults(detail,selected))+
     '<div class="graph-grid"><section class="card graph-card"><div class="graph-head"><h2>Оригинальный график</h2>'+
     '<span class="subtle" id="graph-source-page"></span></div><div class="toolbar">'+
     '<button id="region-tool">'+i('scan')+' Задать область</button><button id="add-tool">'+i('plus')+' Добавить точки</button>'+
@@ -474,7 +668,7 @@ function graphView(requested) {
     (draft.uncertainty?'<p class="values">±'+fmt(draft.uncertainty.x)+' '+e(draft.axes.x.unit)+' · ±'+fmt(draft.uncertainty.y)+' '+e(draft.axes.y.unit)+'</p>':'')+'</div></section></div>'+
     '<section class="card calibration"><div class="graph-head"><div><h2>Калибровка и привязка</h2><p>Изменение шкалы пересчитывает физические координаты из исходных точек PDF.</p></div>'+
     '<div class="row-actions">'+(selected?'<a class="button" href="/api/plot/'+draft.id+'/export/csv" download>'+i('download')+' CSV</a><a class="button" href="/api/plot/'+draft.id+'/export/xlsx" download>'+i('download')+' XLSX</a>':'')+
-    (selected&&['JV','EQE','stability'].includes(draft.plot_type)?'<button id="plot-calculate">'+(draft.plot_type==='JV'?'Извлечь Voc / Jsc':'Рассчитать '+(draft.plot_type==='EQE'?'Jsc_EQE':'T80'))+'</button>':'')+
+    (selected&&['JV','EQE','stability'].includes(draft.plot_type)?'<button id="plot-calculate">'+({JV:'Извлечь показатели из ВАХ',EQE:'Рассчитать плотность тока по спектру',stability:'Рассчитать время до 80% эффективности'}[draft.plot_type])+'</button>':'')+
     '<button class="primary" id="plot-save">'+i('check')+' Сохранить серию</button></div></div>'+
     '<div id="calibration-fields"></div></section>';
   const source=$('#source-plot'), reconstruction=$('#physical-plot');
@@ -548,14 +742,14 @@ function graphView(requested) {
     const image=oldCrop?'<img src="/api/plot/'+selected.id+'/image" alt="Вырезка исходного графика">':
       '<img src="'+renderedPage+'" alt="Страница оригинала" style="width:'+((full[2]-full[0])/w*100)+'%;height:'+((full[3]-full[1])/h*100)+'%;left:'+((full[0]-box[0])/w*100)+'%;top:'+((box[3]-full[3])/h*100)+'%">';
     source.innerHTML='<div class="graph-image" style="aspect-ratio:'+w+'/'+h+'">'+image+
-      '<svg id="source-overlay" viewBox="0 0 '+w+' '+h+'" aria-label="Координаты оригинального графика">'+existing+pointDots+marker+'</svg></div>';
+      '<svg id="source-overlay" data-graph-tool="'+tool+'" viewBox="0 0 '+w+' '+h+'" aria-label="Координаты оригинального графика">'+existing+pointDots+marker+'</svg></div>';
     $('#graph-source-page').textContent='Страница '+draft.source_page+(draft.source_figure?' · рис. '+draft.source_figure:'');
     const overlay=$('#source-overlay');
     const coords=ev=>{
       const b=overlay.getBoundingClientRect();
       return [box[0]+Math.max(0,Math.min(1,(ev.clientX-b.x)/b.width))*w,box[3]-Math.max(0,Math.min(1,(ev.clientY-b.y)/b.height))*h];
     };
-    overlay.onpointerdown=ev=>{
+    function applyTool(ev) {
       const [x,y]=coords(ev), index=ev.target.dataset.graphPoint;
       if(tool==='region') {
         if(!firstCorner){firstCorner=[x,y];renderSource();return;}
@@ -579,6 +773,14 @@ function graphView(requested) {
         dragging=+index;selectedPoint=dragging;overlay.setPointerCapture(ev.pointerId);
       }
       renderPhysical();
+    }
+    let tap=null;
+    overlay.onpointerdown=ev=>{
+      if(ev.pointerType==='touch'&&tool!=='move') {
+        if(ev.isPrimary)tap={id:ev.pointerId,x:ev.clientX,y:ev.clientY};
+        return;
+      }
+      applyTool(ev);
     };
     overlay.onpointermove=ev=>{
       if(dragging==null)return;
@@ -587,7 +789,15 @@ function graphView(requested) {
       const dot=$('[data-graph-point="'+dragging+'"]',overlay);
       dot.setAttribute('cx',x-box[0]);dot.setAttribute('cy',box[3]-y);renderPhysical();
     };
-    overlay.onpointerup=overlay.onpointercancel=()=>{if(dragging!=null){dragging=null;renderSource();renderPhysical();}};
+    function finishDrag() {
+      if(dragging!=null){dragging=null;renderSource();renderPhysical();}
+    }
+    overlay.onpointerup=ev=>{
+      if(tap?.id===ev.pointerId&&Math.hypot(ev.clientX-tap.x,ev.clientY-tap.y)<9)applyTool(ev);
+      tap=null;
+      finishDrag();
+    };
+    overlay.onpointercancel=()=>{tap=null;finishDrag();};
   }
   function renderPhysical() {
     const points=draft.points.map((p,n)=>({...p,x:project(draft.axes.x,p.px),y:project(draft.axes.y,p.py),n})).filter(p=>p.x!==null&&p.y!==null);
@@ -625,10 +835,10 @@ function graphView(requested) {
     const description={EQE:'Использовать сохранённую кривую и локальный спектр ASTM G173-03 AM1.5G. Интеграл ограничен диапазоном оцифрованных длин волн.',
       stability:'Использовать сохранённую кривую. Подтвердите, что по оси Y указана доля от начального КПД.',
       JV:'Восстановить значение по пересечению нулевой отметки на сохранённой ВАХ.'}[kind];
-    showForm(kind==='JV'?'Показатель из ВАХ':'Расчёт '+defaultMetric,'<p>'+description+'</p>'+
+    showForm(kind==='JV'?'Показатель из ВАХ':metricLabel(defaultMetric),'<p>'+description+'</p>'+
       (kind==='EQE'?'<p><label><input name="coverage" type="checkbox"> Подтверждаю полное покрытие значимого отклика для сравнения с Jsc по ВАХ</label></p>':'')+
-      '<div class="form-grid">'+(kind==='JV'?'<label>Метрика'+sel('metric','Метрика графика',{Voc:'Voc',Jsc:'Jsc'})+'</label>':'')+
-      '<label>Агрегация'+sel('aggregation','Агрегация графика',{unknown:'Не указана',single:'Один прибор',champion:'Лучший прибор',mean:'Среднее',median:'Медиана'})+'</label></div>',async form=>{
+      '<div class="form-grid">'+(kind==='JV'?'<label>Показатель'+sel('metric','Показатель графика',Object.fromEntries(['Voc','Jsc','FF','PCE'].map(code=>[code,metricLabel(code)])))+'</label>':'')+
+      '<label>Агрегация'+sel('aggregation','Агрегация графика',aggregationLabels)+'</label></div>',async form=>{
       const metric=form.get('metric')||defaultMetric;
       const result=await api('/api/plot/'+draft.id+'/calculate',json({metric,aggregation:form.get('aggregation'),coverage_confirmed:form.has('coverage')},'POST'));
       await fetchLibrary();location.hash='xray/'+pdf.id+'/'+result.id;
@@ -639,7 +849,8 @@ function graphView(requested) {
     try {
       const saved=await api(selected?'/api/plot/'+draft.id:'/api/pdf/'+pdf.id+'/plot',json(draft,selected?'PATCH':'POST'));
       toast('Серия сохранена');
-      if(selected)await routeView(true);else location.hash='graphs/'+pdf.id+'/'+saved.id;
+      if(selected)await routeView(true);
+      else {await fetchLibrary();location.hash='graphs/'+pdf.id+'/'+saved.id;}
     } catch(ex){toast(ex.message);}
     finally{button.disabled=false;}
   };
@@ -671,7 +882,7 @@ async function detectiveView(token) {
     $('#issues').innerHTML=matched.map(issue=>'<article class="validation-row" data-issue="'+issue.rule_code+'" data-status="'+issue.resolution_status+'"><div class="issue-line"><div>'+
       '<span class="rule-code">'+e(issue.rule_code)+'</span><h2>'+e(issue.rule_name)+'</h2><p>'+e(issue.publication_title)+'</p></div>'+
       '<div class="issue-badges">'+(issue.severity==='error'?badge('Ошибка','bad'):issue.severity==='warning'?badge('Предупреждение','warn'):'')+tag(issueStatus,issue.resolution_status)+'</div></div>'+
-      '<p>'+e(issue.description)+'</p><div class="value-tags">'+issue.compared_values.map(v=>'<span><b>'+e(v.name)+'</b> '+(typeof v.value==='number'?fmt(v.value):e(v.value??'—'))+' '+e(v.unit)+'</span>').join('')+'</div>'+
+      '<p>'+e(issue.description)+'</p><div class="value-tags">'+issue.compared_values.map(v=>'<span><b>'+e(metricLabel(v.name))+'</b> '+(typeof v.value==='number'?fmt(v.value):e(v.value??'—'))+' '+e(v.unit)+'</span>').join('')+'</div>'+
       (issue.threshold?'<div class="rule-threshold">Порог · '+Object.entries(issue.threshold).map(([k,v])=>e(({relative:'Относительный',absolute:'Абсолютный',min:'Минимум',max:'Максимум',denominator:'Делитель',unit:'Единица',max_exclusive:'Строго меньше',min_exclusive:'Строго больше',min_delta:'Мин. разность',max_delta:'Макс. разность',model_temperature_C:'Температура модели, °C'}[k])||k)+' '+thresholdValue(k,v)).join(' · ')+'</div>':'')+
       (issue.hypothesis?'<p class="issue-hypothesis">Гипотеза для проверки · '+e(issue.hypothesis)+'</p>':'')+
       (issue.sources.length?'<details class="issue-sources"><summary>Фрагменты PDF · '+issue.sources.length+'</summary>'+
@@ -687,7 +898,7 @@ async function compareView(token, mode='ordinary') {
   const {records}=await api('/api/compare?mode='+mode);
   if(token!==state.routeToken)return;
   const tabs={ordinary:'Фотоэлектрические',certified:'Сертифицированные',stability:'Стабильность'};
-  const choices=Object.fromEntries(records.map(r=>[r.id,[r.metric_name,fmt(r.normalized_value)+' '+(r.normalized_unit||''),r.device_label,r.scan_direction,r.title].filter(Boolean).join(' · ')]));
+  const choices=Object.fromEntries(records.map(r=>[r.id,[metricLabel(r.metric_name),fmt(r.normalized_value)+' '+(r.normalized_unit||''),r.device_label,scanLabels[r.scan_direction]||r.scan_direction,r.title].filter(Boolean).join(' · ')]));
   main.innerHTML=pageIntro('Сопоставление','Сравните две записи и проверьте, совпадают ли условия измерения.')+
     '<div class="comparison-tabs">'+Object.entries(tabs).map(([k,v])=>'<a class="button '+(mode===k?'active-control':'')+'" href="#compare/'+k+'">'+e(v)+'</a>').join('')+'</div>'+
     '<section class="card"><div class="toolbar compare-controls"><label>Запись A'+sel('compare-a','Запись A',{'':'Выберите результат',...choices})+'</label>'+
@@ -700,7 +911,9 @@ async function compareView(token, mode='ordinary') {
     if(key==='corpus')return corpus[r.corpus_status]?.[0];
     if(key==='certified')return r.certified?'Да':'';
     if(key==='primary')return origins[r.result_origin];
-    if(key==='T80'||key==='ordinary')return r.metric_name;
+    if(key==='T80'||key==='ordinary'||key==='metric_name')return metricLabel(r.metric_name);
+    if(key==='scan_direction')return scanLabels[r.scan_direction]||r.scan_direction;
+    if(key==='aggregation')return aggregationLabels[r.aggregation]||r.aggregation;
     return r[key];
   }
   async function matrix() {
@@ -711,7 +924,7 @@ async function compareView(token, mode='ordinary') {
       if(a!==left.value||b!==right.value||!target.isConnected)return;
       const link=r=>'<a class="link" href="#xray/'+r.pdf_version_id+'/'+r.id+'">'+e(r.title)+' · '+e(r.device_label||'—')+'</a>';
       target.innerHTML='<div class="toolbar">'+(data.allowed?badge('Сопоставимы','good'):badge('Несопоставимы','bad'))+
-        '<span class="subtle">Допуск площади '+fmt(data.area_tolerance*100)+'%</span></div><div class="table-scroll"><table><thead><tr><th>Критерий</th><th>'+link(data.a)+'</th><th>'+link(data.b)+'</th><th>Совпадение</th></tr></thead><tbody>'+
+        '<span class="subtle">Допуск площади '+fmt(data.area_tolerance*100)+'%</span></div>'+tableHint+'<div class="table-scroll" tabindex="0" role="region" aria-label="Таблица сравнения"><table><thead><tr><th>Критерий</th><th>'+link(data.a)+'</th><th>'+link(data.b)+'</th><th>Совпадение</th></tr></thead><tbody>'+
         Object.entries(data.criteria).map(([key,ok])=>'<tr class="'+(ok?'':'criteria-failed')+'"><td><b>'+e(comparisonLabels[key]||key)+'</b></td><td>'+e(display(data.a,key)||'—')+'</td><td>'+e(display(data.b,key)||'—')+'</td><td>'+badge(ok?'Да':'Нет',ok?'good':'bad')+'</td></tr>').join('')+'</tbody></table></div>'+
         (data.allowed?'<div class="toolbar"><b>Разность A − B · '+fmt(data.a.normalized_value-data.b.normalized_value)+' '+e(data.a.normalized_unit)+'</b></div>':'');
     } catch(ex){target.innerHTML=empty(ex.message);}
@@ -733,13 +946,37 @@ const dataNames={publications:'Публикации',materials:'Материал
 function dataTabs(active) {return '<div class="comparison-tabs">'+Object.entries(dataNames).map(([k,v])=>'<a class="button '+(active===k?'active-control':'')+'" href="#results/'+k+'">'+v+'</a>').join('')+'</div>';}
 function dataTable(records,columns) {
   if(!records.length)return empty('Нет записей.');
-  return '<div class="table-scroll"><table><thead><tr>'+columns.map(c=>'<th>'+e(c)+'</th>').join('')+'</tr></thead><tbody>'+
+  return tableHint+'<div class="table-scroll" tabindex="0" role="region" aria-label="Таблица данных"><table class="data-table"><thead><tr>'+columns.map(c=>'<th scope="col">'+e(fieldLabel(c))+'</th>').join('')+'</tr></thead><tbody>'+
     records.map(r=>'<tr>'+columns.map(c=>{
-      const value=c==='extraction_method'&&r[c]==='local_ai_pdf_quote'?'Локальный ИИ':r[c], text=value==null||value===''?'—':typeof value==='object'?JSON.stringify(value):String(value);
-      const content=e(text);
-      const link=r.pdf_version_id && ['metric_name','publication_code','source_page'].includes(c);
-      return '<td style="min-width:100px;max-width:360px;overflow-wrap:anywhere">'+(link?'<a class="link" href="#xray/'+r.pdf_version_id+(r.metric_name?'/'+r.id:'')+'">'+content+'</a>':content)+'</td>';
+      const text=tableText(c,r[c]);
+      const content=(r.plot_id&&r[c]!=null&&['metric_value','normalized_value'].includes(c)?'≈ ':'')+e(text);
+      const link=r.pdf_version_id && ['metric_name','metric_value','publication_code','source_page'].includes(c);
+      return '<td class="'+(c==='metric_name'?'metric-cell':'')+'">'+(link?'<a class="link" href="#xray/'+e(r.pdf_version_id)+(r.metric_name?'/'+e(r.id):'')+'">'+content+'</a>':content)+'</td>';
     }).join('')+'</tr>').join('')+'</tbody></table></div>';
+}
+const tableValueLabels={
+  corpus_status:Object.fromEntries(Object.entries(corpus).map(([key,[label]])=>[key,label])),
+  extraction_method:{local_ai_pdf_quote:'Локальный ИИ',pdf_text:'Текст PDF',geometry_table:'Таблица PDF',pdf_prose_context:'Текст с учётом контекста',plot_calculation:'Расчёт по графику'},
+  result_origin:origins, scan_direction:scanLabels, aggregation:aggregationLabels,
+  device_role:{control:'Контрольный',target:'Исследуемый',record:'Рекордный'},
+  severity:{error:'Ошибка',warning:'Предупреждение',info:'Информация',not_applicable:'Неприменимо'},
+  resolution_status:issueStatus
+};
+function tableValue(column,value) {
+  if(column==='metric_name')return metricLabel(value);
+  const labels=tableValueLabels[column];
+  if(labels&&Object.hasOwn(labels,value)) {
+    const label=labels[value];
+    return Array.isArray(label)?label[0]:label;
+  }
+  if(value!=null&&['certified','mask_used','is_fixture','corpus_manual'].includes(column))return value?'Да':'Нет';
+  return value;
+}
+function tableText(column,raw) {
+  const value=tableValue(column,raw);
+  if(value==null||value==='')return '—';
+  if(Array.isArray(value))return value.length?value.join(', '):'—';
+  return typeof value==='object'?JSON.stringify(value):String(value);
 }
 async function dataView(token,requested) {
   const name=dataNames[requested]?requested:'results';
@@ -752,10 +989,23 @@ async function dataView(token,requested) {
     '<section class="card"><div class="toolbar"><label class="search">'+i('search')+'<input id="entity-search" aria-label="Поиск в таблице" placeholder="Поиск по всем полям"></label></div><div id="entity-rows"></div></section>';
   const render=()=>{
     const q=$('#entity-search').value.toLowerCase();
-    const records=data.records.filter(r=>Object.values(r).join(' ').toLowerCase().includes(q));
+    const records=data.records.filter(r=>Object.entries(r).some(([field,value])=>
+      [value,tableValue(field,value)].join(' ').toLowerCase().includes(q)));
     $('#entity-rows').innerHTML=dataTable(records,data.columns)+'<div class="table-foot">'+records.length+' записей</div>';
   };
   $('#entity-search').oninput=render;render();
 }
 window.addEventListener('hashchange',()=>routeView());
+phone.addEventListener('change',()=>{
+  if($('#publication-rows'))refreshLibrary();
+  const filters=$('.result-filter-panel');
+  if(filters){
+    filters.open=!phone.matches;
+    refreshResults();
+  }
+});
+window.addEventListener('resize',()=>{
+  const holder=$('#pdf-scroll');
+  if(holder&&holder.clientWidth!==Number(holder.dataset.viewportWidth))renderPdf(Boolean(state.currentRef));
+});
 try {await fetchLibrary();await routeView();schedule();} catch(ex) {main.innerHTML=empty(ex.message);}
