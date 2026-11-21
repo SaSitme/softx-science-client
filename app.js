@@ -208,6 +208,7 @@ function allResults() {
     sel('architecture','Архитектура',{'':'Все архитектуры','n-i-p':'n-i-p','p-i-n':'p-i-n',substrate:'substrate',superstrate:'superstrate'},state.filter.architecture)+
     sel('result_origin','Происхождение',{'':'Любое происхождение',...origins},state.filter.result_origin)+
     sel('extraction_status','Статус проверки',{'':'Любая верификация','Извлечено автоматически':'Извлечено автоматически','Подтверждено пользователем':'Подтверждено пользователем','Требует проверки':'Требует проверки'},state.filter.extraction_status)+
+    sel('extraction_method','Способ извлечения',{'':'Любой способ',local_ai_pdf_quote:'Предложения локального ИИ'},state.filter.extraction_method)+
     sel('has_issues','Замечания',{'':'Все замечания','1':'Есть замечания','0':'Без замечаний'},state.filter.has_issues)+
     sel('certified','Сертификация',{'':'Любая сертификация','1':'Сертифицировано','0':'Сертификация не подтверждена'},state.filter.certified)+
     '</div><div id="result-rows"></div></section>';
@@ -217,10 +218,10 @@ function allResults() {
 }
 function refreshResults() {
   const q=(state.filter.q||'').trim().toLowerCase();
-  const fields=['material_class','architecture','result_origin','extraction_status','has_issues','certified'];
+  const fields=['material_class','architecture','result_origin','extraction_status','extraction_method','has_issues','certified'];
   const rs=state.results.filter(r=>[r.publication_code,r.publication_title,r.material_class,r.device_label,r.metric_name,r.source_text].join(' ').toLowerCase().includes(q)
     && fields.every(key=>!state.filter[key] || state.filter[key]===String(r[key] ?? (key==='certified'?0:''))));
-  const columns=['publication_code','metric_name','metric_value','metric_unit','device_label','scan_direction','aggregation','result_origin','raw_value','raw_unit','normalized_value','normalized_unit','spread_value','n_devices','time_point','time_unit','source_page','source_table','source_figure','source_text','extraction_status','device_id','measurement_id','material_id','cited_doi','duplicate_of','note'];
+  const columns=['publication_code','metric_name','metric_value','metric_unit','device_label','scan_direction','aggregation','result_origin','raw_value','raw_unit','normalized_value','normalized_unit','spread_value','n_devices','time_point','time_unit','source_page','source_table','source_figure','source_text','extraction_status','extraction_method','device_id','measurement_id','material_id','cited_doi','duplicate_of','note'];
   $('#result-rows').innerHTML=dataTable(rs,columns)+'<div class="table-foot">Найдено '+rs.length+'</div>';
 
 }
@@ -269,15 +270,24 @@ function viewport(meta, scale, angle) {
   return {width:w,height:h,matrix:[1,0,0,1,0,0]};
 }
 function visibleSource(source,sources,links) {
-  if(source.source_type!=='table_header'||source.fragment_role!=='unit') return true;
+  const legacyValue=source.source_type==='text'&&source.fragment_role==='value';
+  const tableValue=source.source_type==='table_cell'&&source.fragment_role==='value';
+  const headerUnit=source.source_type==='table_header'&&source.fragment_role==='unit';
+  if(!legacyValue&&!tableValue&&!headerUnit) return true;
   const resultIds=new Set(links.filter(l=>l.source_reference_id===source.id).map(l=>l.result_id));
   const [left,bottom,right,top]=source.bbox;
   return !sources.some(other=>{
-    if(other.id===source.id||other.source_page!==source.source_page
-       ||other.source_type!==source.source_type||other.fragment_role!==source.fragment_role) return false;
+    if(other.id===source.id||other.source_page!==source.source_page||other.fragment_role!==source.fragment_role) return false;
+    const sharesResult=()=>links.some(l=>l.source_reference_id===other.id&&resultIds.has(l.result_id));
+    if(!headerUnit) {
+      const preferred=legacyValue ? source.id!==state.currentRef&&other.source_type==='table_cell'
+        : other.id===state.currentRef&&other.source_type==='text';
+      return preferred&&other.source_fragment===source.source_fragment
+        &&other.bbox.every((coordinate,index)=>coordinate===source.bbox[index])&&sharesResult();
+    }
+    if(other.source_type!==source.source_type) return false;
     const [x0,y0,x1,y1]=other.bbox;
-    return x0>=left&&y0>=bottom&&x1<=right&&y1<=top&&x1-x0<right-left
-      &&links.some(l=>l.source_reference_id===other.id&&resultIds.has(l.result_id));
+    return x0>=left&&y0>=bottom&&x1<=right&&y1<=top&&x1-x0<right-left&&sharesResult();
   });
 }
 function renderPdf(scroll=false) {
@@ -355,6 +365,7 @@ function renderRecords() {
   detail.innerHTML='<div class="details"><h3>'+e(r.metric_name)+' · '+measurementValue(r)+'</h3>'+
     '<p>В статье <b>'+e(r.raw_value)+' '+e(r.raw_unit)+'</b> · '+e(r.value_state)+'</p><p>'+resultBadge(r)+'</p>'+
     (context.length?'<dl class="result-context">'+context.map(([label,value])=>'<dt>'+e(label)+'</dt><dd>'+e(value)+'</dd>').join('')+'</dl>':'')+
+    (r.extraction_method==='local_ai_pdf_quote'?'<p>Найдено локальным ИИ. Проверьте связь показателя с источником.</p>':'')+
     (r.formula?'<p>Расчёт · '+e(r.formula)+'</p><p>'+e(r.calculation_inputs?.reference||'')+'</p>':'')+
     '<p>'+refs.map(s=>'<button class="icon-btn" data-focus-ref="'+s.id+'" title="'+e(s.source_fragment)+'">с. '+s.source_page+' · '+e(roles[s.fragment_role])+' · '+e(s.source_fragment?.slice(0,46)||'')+'</button>').join(' ')+'</p>'+
     '<p><button class="primary" id="record-edit">'+i('pencil')+' Проверить и исправить</button></p></div>';
@@ -368,8 +379,11 @@ function selectResult(id, jump=true) {
   if(!state.detail.results.some(r=>r.id===id))return;
   state.current=id;state.graphPoint=null;
   if(jump) {
-    const ids=state.detail.links.filter(l=>l.result_id===id).map(l=>l.source_reference_id);
-    const ref=state.detail.sources.find(s=>ids.includes(s.id)&&s.fragment_role==='value')||state.detail.sources.find(s=>ids.includes(s.id));
+    const {sources,links}=state.detail;
+    const ids=new Set(links.filter(l=>l.result_id===id).map(l=>l.source_reference_id));
+    state.currentRef=null;
+    const refs=sources.filter(s=>ids.has(s.id)&&visibleSource(s,sources,links));
+    const ref=refs.find(s=>s.fragment_role==='value')||refs[0];
     if(ref){state.page=ref.source_page;state.currentRef=ref.id;state.roles.add(ref.fragment_role);}
   }
   renderRecords();renderPdf(jump);
@@ -721,7 +735,7 @@ function dataTable(records,columns) {
   if(!records.length)return empty('Нет записей.');
   return '<div class="table-scroll"><table><thead><tr>'+columns.map(c=>'<th>'+e(c)+'</th>').join('')+'</tr></thead><tbody>'+
     records.map(r=>'<tr>'+columns.map(c=>{
-      const value=r[c], text=value==null||value===''?'—':typeof value==='object'?JSON.stringify(value):String(value);
+      const value=c==='extraction_method'&&r[c]==='local_ai_pdf_quote'?'Локальный ИИ':r[c], text=value==null||value===''?'—':typeof value==='object'?JSON.stringify(value):String(value);
       const content=e(text);
       const link=r.pdf_version_id && ['metric_name','publication_code','source_page'].includes(c);
       return '<td style="min-width:100px;max-width:360px;overflow-wrap:anywhere">'+(link?'<a class="link" href="#xray/'+r.pdf_version_id+(r.metric_name?'/'+r.id:'')+'">'+content+'</a>':content)+'</td>';
