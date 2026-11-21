@@ -9,6 +9,7 @@ const assets = new Map([
   ['/style.css', ['style.css', 'text/css; charset=utf-8']],
   ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['/photovoltaic-banner.webp', ['photovoltaic-banner.webp', 'image/webp']],
+  ['/softx-logo.svg', ['softx-logo.svg', 'image/svg+xml']],
 ]);
 
 function forwardApi(req, res) {
@@ -39,7 +40,7 @@ createServer(async (req, res) => {
     return;
   }
 
-  const asset = assets.get(path);
+  const asset = assets.get(path.startsWith('/static/') ? path.slice('/static'.length) : path);
   if (!asset) {
     res.writeHead(404).end();
     return;

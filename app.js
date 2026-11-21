@@ -2,9 +2,10 @@ const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
 const e = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt = v => v == null ? '—' : Number(v.toPrecision(9)).toString();
-const routes = {library:'Публикации',results:'Данные',xray:'PDF X-Ray',graphs:'Graph Hunter',detective:'Science Detective',compare:'Сопоставление',export:'Экспорт данных'};
+const routes = {library:'Публикации',results:'Данные',xray:'PDF X-Ray',compare:'Сопоставление',export:'Экспорт данных'};
 const paths = {
   logo:'<path d="M4 19 12 4l8 15H4Z M8 13l4 6 4-6M8 13h8"/>',
+  trash:'<path d="M3 6h18M9 6V3h6v3m4 0-1 15H6L5 6m5 4v7m4-7v7"/>',
   home:'<path d="m3 10 9-7 9 7M5 9v11h5v-6h4v6h5V9"/>',
   bell:'<path d="M5 17h14l-2-3V9a5 5 0 0 0-10 0v5l-2 3ZM10 20a2 2 0 0 0 4 0"/>',
   flask:'<path d="M9 3h6m-5 0v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3M8 15h8"/>',
@@ -36,6 +37,8 @@ $$('[data-icon]').forEach(el => el.innerHTML = icon(el.dataset.icon));
 const corpus = {included:['В корпусе','good'],excluded_tandem:['Тандем','bad'],excluded_theoretical:['Теоретическая','warn'],needs_review:['На рассмотрении','']};
 const processing = {completed:['Обработан','good'],partial:['Частично','warn'],failed:['Ошибка PDF','bad'],queued:['В очереди',''],processing:['Обработка','violet']};
 const origins = {primary:'Первичный',cited:'Цитируемый'};
+const cloudProviders = {openai:'OpenAI',deepseek:'DeepSeek'};
+const extractionProviders = {openai_pdf_quote:'OpenAI',deepseek_pdf_quote:'DeepSeek',deepseek_vision:'DeepSeek (изображение)',local_ai_pdf_quote:'Локальный ИИ',local_ocr:'Локальный OCR'};
 const roles = {value:'Значение',unit:'Единица',sample_label:'Образец',condition:'Условие'};
 const metricLabels = {
   PCE:'Коэффициент полезного действия',
@@ -63,7 +66,7 @@ const fieldLabels = {
   source_figure:'Рисунок в статье', source_text:'Фрагмент источника', extraction_status:'Статус проверки',
   extraction_method:'Способ извлечения', device_id:'Идентификатор прибора', measurement_id:'Идентификатор измерения',
   material_id:'Идентификатор материала', cited_doi:'DOI цитируемой публикации', cited_publication_id:'Идентификатор цитируемой публикации',
-  duplicate_of:'Дублируемая запись', note:'Примечание', value_state:'Состояние значения',
+  duplicate_of:'Дублируемая запись', note:'Примечание', value_state:'Состояние значения', deleted:'Удалена',
   range_min:'Нижняя граница диапазона', range_max:'Верхняя граница диапазона', inequality_op:'Знак неравенства',
   material_name_raw:'Название материала в статье', formula_normalized:'Химическая формула', material_class:'Класс материала',
   dimensionality:'Размерность материала', additives:'Добавки', bandgap_value:'Ширина запрещённой зоны',
@@ -107,13 +110,13 @@ async function api(path, init={}) {
 }
 const json = (body, method='PATCH') => ({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 const dialog = $('#edit-dialog');
-function showForm(title, html, save) {
-  dialog.innerHTML='<form><div class="dialog-head"><h2>'+title+'</h2>'+btn('x','Закрыть','type="button" data-close="edit-dialog"')+'</div>'+html+'<div class="dialog-actions"><button type="button" data-close="edit-dialog">Отмена</button><button type="submit" class="primary">Сохранить</button></div></form>';
+function showForm(title, html, save, {submit='Сохранить', message='Изменения сохранены'}={}) {
+  dialog.innerHTML='<form><div class="dialog-head"><h2>'+title+'</h2>'+btn('x','Закрыть','type="button" data-close="edit-dialog"')+'</div>'+html+'<div class="dialog-actions"><button type="button" data-close="edit-dialog">Отмена</button><button type="submit" class="primary">'+e(submit)+'</button></div></form>';
   dialog.showModal();
   $('form',dialog).addEventListener('submit', async ev=>{
     ev.preventDefault();
     const button=$('button[type=submit]',dialog); button.disabled=true;
-    try {await save(new FormData(ev.currentTarget));dialog.close();toast('Изменения сохранены');}
+    try {await save(new FormData(ev.currentTarget));dialog.close();toast(message);}
     catch (ex) {toast(ex.message);}
     finally {button.disabled=false;}
   });
@@ -125,7 +128,10 @@ const main=$('#main');
 let pollTimer;
 async function fetchLibrary() {
   Object.assign(state,await api('/api/library'));
-  $('.top-issues').classList.toggle('has-issues',state.active_issues>0);
+  if(state.private_workspace) {
+    $('.sidebar-foot b').textContent='Моя библиотека';
+    $('.sidebar-foot small').textContent='Доступна в этом браузере';
+  }
 }
 function schedule() {
   clearTimeout(pollTimer);
@@ -135,7 +141,6 @@ function schedule() {
     try {
       await fetchLibrary();
       if (route==='#library'||!route) refreshLibrary();
-      if (location.hash==='#graphs') await routeView(true);
       if (route==='#xray' && state.detail && ['queued','processing'].includes(state.detail.pdf.processing_status)) await routeView(true);
       schedule();
     } catch(ex) {toast(ex.message);}
@@ -156,11 +161,11 @@ async function routeView(preserve=false) {
   try {
     if (name==='library') return library();
     if (name==='results') return await dataView(token,id);
-    if (name==='xray' && !id) return pickPublication('PDF X-Ray','Выберите публикацию для просмотра источников.','xray');
+    if (name==='xray' && !id) return pickPublication();
     if (name==='xray') {
       const detail=await api('/api/pdf/'+id);
       if (token!==state.routeToken) return;
-      if (state.detail?.pdf.id!==id) Object.assign(state,{page:1,zoom:1,rotation:0,current:null,currentRef:null,graphPoint:null});
+      if (state.detail?.pdf.id!==id) Object.assign(state,{page:1,zoom:1,rotation:0,current:null,currentRef:null,graphPoint:null,manualPick:false,reviewOnly:false});
       state.detail=detail;
       xray();
       if(focus) {
@@ -178,14 +183,6 @@ async function routeView(preserve=false) {
       }
       return;
     }
-    if (name==='graphs' && !id) return pickPublication('Graph Hunter','Выберите публикацию с графиками.','graphs');
-    if (name==='graphs') {
-      const detail=await api('/api/pdf/'+id);
-      if(token!==state.routeToken)return;
-      state.graphDetail=detail;
-      return graphView(focus);
-    }
-    if(name==='detective')return await detectiveView(token);
     if(name==='compare')return await compareView(token,['certified','stability'].includes(id)?id:'ordinary');
     if(name==='export')return exportView();
     main.innerHTML=pageIntro(routes[name],'Выберите публикацию в библиотеке.');
@@ -285,6 +282,7 @@ function refreshLibrary() {
 
   const entry=p=>'<a class="article-cell" href="'+fileRoute(p)+'"><span class="file-icon" data-icon="file">'+icon('file')+'</span><span><b>'+e(p.title)+'</b><small>'+e(p.filename)+(p.is_fixture?' · тестовый PDF':'')+'</small></span></a>';
   const actions=p=>'<div class="row-actions">'+btn('rotate','Повторить обработку','data-retry="'+p.version_id+'" '+(['queued','processing'].includes(p.processing_status)?'disabled':''))+
+    removePublicationButton(p.id)+
     '<a class="button icon-btn" aria-label="Открыть PDF X-Ray" href="'+fileRoute(p)+'">'+i('chevron')+'</a></div>';
   const corpusTag=p=>'<span title="'+e(p.corpus_reason)+'">'+tag(corpus,p.corpus_status)+'</span>';
   const processTag=p=>'<span title="'+e(p.error_message)+'">'+tag(processing,p.processing_status)+'</span>';
@@ -316,12 +314,11 @@ window.addEventListener('keydown',ev=>{
     globalQuery.select();
   }
 });
-function pickPublication(title, description, route) {
-  const graphsOnly=route==='graphs';
-  const publications=state.publications.filter(p=>p.pages.length&&(!graphsOnly||p.plot_count>0));
-  const noPublications=graphsOnly?'Пока нет публикаций с графиками. График можно добавить вручную из PDF X-Ray.':'Пока нет обработанных публикаций.';
-  main.innerHTML=pageIntro(title,description)+'<section class="card details">'+
-    (publications.map(p=>'<p><a class="link" href="#'+route+'/'+p.version_id+'">'+e(p.title)+'</a></p>').join('')||empty(noPublications))+'</section>';
+function pickPublication() {
+  const publications=state.publications.filter(p=>p.pages.length);
+  main.innerHTML=pageIntro('PDF X-Ray','Выберите публикацию для просмотра источников.')+'<section class="card details">'+
+    (publications.map(p=>'<p><a class="link" href="#xray/'+p.version_id+'">'+e(p.title)+'</a></p>').join('')||
+      empty('Пока нет обработанных публикаций.'))+'</section>';
 }
 const resultColumns=['publication_code','metric_name','metric_value','metric_unit','device_label','scan_direction','aggregation','result_origin','raw_value','raw_unit','normalized_value','normalized_unit','spread_value','n_devices','time_point','time_unit','source_page','source_table','source_figure','source_text','extraction_status','extraction_method','device_id','measurement_id','material_id','cited_doi','duplicate_of','note'];
 function allResults() {
@@ -335,7 +332,7 @@ function allResults() {
     sel('architecture','Архитектура',{'':'Все архитектуры','n-i-p':'n-i-p','p-i-n':'p-i-n',substrate:'substrate',superstrate:'superstrate'},state.filter.architecture)+
     sel('result_origin','Происхождение',{'':'Любое происхождение',...origins},state.filter.result_origin)+
     sel('extraction_status','Статус проверки',{'':'Любая верификация','Извлечено автоматически':'Извлечено автоматически','Подтверждено пользователем':'Подтверждено пользователем','Требует проверки':'Требует проверки'},state.filter.extraction_status)+
-    sel('extraction_method','Способ извлечения',{'':'Любой способ',local_ai_pdf_quote:'Предложения локального ИИ',plot_calculation:'Расчёт по графику'},state.filter.extraction_method)+
+    sel('extraction_method','Способ извлечения',{'':'Любой способ',...extractionProviders,manual_pdf:'Добавлено вручную из PDF',plot_calculation:'Расчёт по графику'},state.filter.extraction_method)+
     sel('has_issues','Замечания',{'':'Все замечания','1':'Есть замечания','0':'Без замечаний'},state.filter.has_issues)+
     sel('certified','Сертификация',{'':'Любая сертификация','1':'Сертифицировано','0':'Сертификация не подтверждена'},state.filter.certified)+
     '</div></details></div><div id="result-rows"></div></section>';
@@ -358,6 +355,12 @@ function allResults() {
     if(record) details.insertAdjacentHTML('beforeend','<dl>'+resultColumns.map(column=>
       '<dt>'+e(fieldLabel(column))+'</dt><dd>'+e(tableText(column,record[column]))+'</dd>').join('')+'</dl>');
   },true);
+  $('#result-rows').onclick=ev=>{
+    const button=ev.target.closest('[data-remove-result]');
+    if(!button)return;
+    const record=state.results.find(r=>r.id===button.dataset.removeResult);
+    if(record) confirmRemoveResult(record);
+  };
   refreshResults();
 }
 function refreshResults() {
@@ -369,7 +372,7 @@ function refreshResults() {
   if(!target)return;
   const layout=state.filter.resultLayout||(phone.matches?'cards':'table');
   $$('[data-result-layout]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.resultLayout===layout)));
-  target.innerHTML=(layout==='cards'&&rs.length?resultCards(rs):dataTable(rs,resultColumns))+'<div class="table-foot">Найдено '+rs.length+'</div>';
+  target.innerHTML=(layout==='cards'&&rs.length?resultCards(rs):dataTable(rs,resultColumns,true))+'<div class="table-foot">Найдено '+rs.length+'</div>';
 }
 function resultCards(records) {
   return '<div class="result-card-grid">'+records.map(r=>'<article class="result-card">'+
@@ -377,18 +380,19 @@ function resultCards(records) {
     '<p>'+e(r.publication_code||r.publication_title)+'</p>'+
     (r.device_label?'<p>Прибор '+e(r.device_label)+(r.scan_direction?' · '+e(scanLabels[r.scan_direction]||r.scan_direction):'')+'</p>':'')+
     '<div class="result-card-actions">'+resultBadge(r)+
-    (r.pdf_version_id?'<a class="button" href="#xray/'+e(r.pdf_version_id)+'/'+e(r.id)+'">'+i('scan')+' К источнику в PDF</a>':'')+'</div>'+
+    (r.pdf_version_id?'<a class="button" href="#xray/'+e(r.pdf_version_id)+'/'+e(r.id)+'">'+i('scan')+' К источнику в PDF</a>':'')+removeResultButton(r)+'</div>'+
     '<details data-result-fields="'+e(r.id)+'"><summary>Все поля</summary></details></article>').join('')+'</div>';
 }
 function resultBadge(r) {return badge(r.extraction_status,r.extraction_status.startsWith('Подтверждено')?'good':r.extraction_status.startsWith('Требует')?'warn':'violet');}
-function measurementValue(r) {return e((r.inequality_op||'')+(r.range_min==null?fmt(r.normalized_value??r.metric_value):fmt(r.range_min)+'–'+fmt(r.range_max)))+' '+e(r.normalized_unit??r.metric_unit);}
+function measurementNumber(r) {
+  const value=r.range_min==null?fmt(r.normalized_value??r.metric_value):fmt(r.range_min)+'–'+fmt(r.range_max);
+  return (r.inequality_op||'')+value;
+}
+function measurementValue(r) {return e(measurementNumber(r))+' '+e(r.normalized_unit??r.metric_unit);}
 function xray() {
-  const {pdf,publication,devices,measurements,layers,materials,audit,plots}=state.detail;
-  const canAddPlot=pdf.pages.length&&pdf.pv_extraction_enabled!==0&&!publication.corpus_status.startsWith('excluded');
-  const graphLink=plots.length||canAddPlot?'<a class="button" href="#graphs/'+pdf.id+(plots.length?'':'/new')+'">'+
-    i('chart')+(plots.length?' Graph Hunter':' Добавить график')+'</a>':'';
+  const {pdf,publication,devices,measurements,layers,materials,audit}=state.detail;
   const actions='<div class="row-actions"><a class="button" href="/api/pdf/'+pdf.id+'/original" target="_blank" rel="noopener">'+i('file')+' Оригинал PDF</a>'+
-    graphLink+'<button id="corpus-edit">'+i('pencil')+' Решение по корпусу</button>'+btn('rotate','Повторить обработку','data-retry="'+pdf.id+'"')+'</div>';
+    '<button id="corpus-edit">'+i('pencil')+' Решение по корпусу</button>'+btn('rotate','Повторить обработку','data-retry="'+pdf.id+'"')+removePublicationButton(publication.id)+'</div>';
   main.innerHTML='<p><a href="#library" class="link">Библиотека публикаций</a></p>'+
     pageIntro(e(publication.title),e(pdf.filename)+(publication.is_fixture?' · тестовый PDF':''),actions)+
     '<p>'+tag(corpus,publication.corpus_status)+' '+tag(processing,pdf.processing_status)+' '+e(publication.corpus_reason)+'</p>'+
@@ -399,7 +403,10 @@ function xray() {
     btn('minus','Уменьшить масштаб','id="pdf-minus"')+'<span id="pdf-zoom"></span>'+btn('plus','Увеличить масштаб','id="pdf-plus"')+
     btn('rotate','Повернуть страницу','id="pdf-rotate"')+'<span id="pdf-angle"></span><button id="pdf-records" class="phone-only">'+i('list')+' Записи</button></div>'+
     '<div class="toolbar overlay-filters">'+Object.entries(roles).map(([k,v])=>'<label><input type="checkbox" data-role-filter="'+k+'" '+(state.roles.has(k)?'checked':'')+'><span class="role-swatch role-'+k+'"></span> '+v+'</label>').join('')+
-    '</div><div class="pdf-scroll" id="pdf-scroll"></div></section><section class="card records-panel"><div class="toolbar"><strong>Извлечённые записи</strong><span class="badge violet">'+state.detail.results.length+'</span></div><div id="record-list" class="record-list"></div><div id="active-record"></div></section></div>':'')+
+    '</div><div class="toolbar">'+(pdf.pv_extraction_enabled!==0?'<button id="manual-pick" aria-pressed="false">Добавить запись из PDF</button>':'')+
+    '<small id="manual-pick-hint" hidden>Обведите число или ячейку с результатом.</small></div><div class="pdf-scroll" id="pdf-scroll"></div></section>'+
+    '<section class="card records-panel"><div class="toolbar"><strong>Извлечённые записи</strong><span class="badge violet">'+state.detail.results.length+
+    '</span><label><input type="checkbox" id="review-only" '+(state.reviewOnly?'checked':'')+'> Только требуют проверки</label></div><div id="record-list" class="record-list"></div><div id="active-record"></div></section></div>':'')+
     '<details class="card details"><summary>Приборы, материалы и измерения · '+devices.length+' / '+materials.length+' / '+measurements.length+'</summary>'+
     materials.map(m=>'<p><b>'+e(m.material_class)+'</b> · '+e(m.formula_normalized||m.material_name_raw)+(m.bandgap_value==null?'':' · '+metricLabel('Eg')+' '+fmt(m.bandgap_value)+' '+e(m.bandgap_unit))+'</p>').join('')+
     devices.map(d=>'<details><summary>'+e(d.device_label)+' · '+e([d.device_role,d.architecture,d.active_area&&d.active_area+' '+d.area_unit].filter(Boolean).join(' · '))+'</summary>'+
@@ -418,6 +425,9 @@ function xray() {
   $('#pdf-plus').onclick=()=>{state.zoom=Math.min(3,state.zoom+.2);renderPdf();};
   $('#pdf-rotate').onclick=()=>{state.rotation=(state.rotation+90)%360;renderPdf();};
   $('#pdf-records').onclick=()=>$('.records-panel').scrollIntoView({block:'start'});
+  const picker=$('#manual-pick');
+  if(picker)picker.onclick=()=>{state.manualPick=!state.manualPick;renderPdf();};
+  $('#review-only').onchange=ev=>{state.reviewOnly=ev.target.checked;renderRecords();};
   $$('.overlay-filters input').forEach(el=>el.onchange=()=>{if(el.checked)state.roles.add(el.dataset.roleFilter);else state.roles.delete(el.dataset.roleFilter);renderPdf();});
   renderRecords();renderPdf();
 }
@@ -480,7 +490,13 @@ function renderPdf(scroll=false) {
   }
   holder.innerHTML='<div class="pdf-page" style="width:'+v.width+'px;height:'+v.height+'px"><div style="position:absolute;width:'+w+'px;height:'+h+'px;transform-origin:0 0;transform:matrix('+v.matrix.join(',')+')">'+
     '<img src="/api/pdf/'+pdf.id+'/page/'+state.page+'?w='+Math.max(650,Math.min(2400,Math.ceil(w/300)*300))+'" alt="PDF, страница '+state.page+'" style="width:'+w+'px;height:'+h+'px">'+
-    '<svg viewBox="0 0 '+w+' '+h+'">'+rectangles+evidence+(marker?'<circle id="graph-marker" cx="'+marker[0]+'" cy="'+marker[1]+'" r="6" fill="#d745aa" stroke="white" stroke-width="2"/>':'')+'</svg></div></div>';
+    '<svg viewBox="0 0 '+w+' '+h+'" '+(state.manualPick?'class="pdf-picking"':'')+'>'+rectangles+evidence+
+    (state.manualPick?'<rect width="'+w+'" height="'+h+'" fill="transparent"/><rect class="pdf-pick-box"/>':'')+
+    (marker?'<circle id="graph-marker" cx="'+marker[0]+'" cy="'+marker[1]+'" r="6" fill="#d745aa" stroke="white" stroke-width="2"/>':'')+'</svg></div></div>';
+  const picker=$('#manual-pick');
+  if(picker){picker.setAttribute('aria-pressed',String(Boolean(state.manualPick)));picker.textContent=state.manualPick?'Отменить выделение':'Добавить запись из PDF';}
+  $('#manual-pick-hint').hidden=!state.manualPick;
+  if(state.manualPick) bindPdfSelection($('svg',holder),w,h,meta,scale,pdf.id,state.page);
   $('#pdf-pagination').textContent=state.page+' / '+pdf.pages.length;
   $('#pdf-zoom').textContent=Math.round(state.zoom*100)+'%';
   $('#pdf-angle').textContent=angle+'°';
@@ -508,12 +524,64 @@ function renderPdf(scroll=false) {
 function showPdfOnPhone() {
   if(phone.matches)$('#pdf-scroll')?.scrollIntoView({block:'nearest'});
 }
+function bindPdfSelection(overlay,w,h,meta,scale,version,page) {
+  const mark=$('.pdf-pick-box',overlay), [left,,,top]=meta.crop_box;
+  let initial=null;
+  const locate=ev=>{
+    const p=new DOMPoint(ev.clientX,ev.clientY).matrixTransform(overlay.getScreenCTM().inverse());
+    return [Math.max(0,Math.min(w,p.x)),Math.max(0,Math.min(h,p.y))];
+  };
+  overlay.onpointerdown=ev=>{
+    if(ev.button!==0)return;
+    initial=locate(ev);overlay.setPointerCapture(ev.pointerId);
+  };
+  overlay.onpointermove=ev=>{
+    if(!initial)return;
+    const [x,y]=locate(ev);
+    Object.entries({x:Math.min(x,initial[0]),y:Math.min(y,initial[1]),width:Math.abs(x-initial[0]),height:Math.abs(y-initial[1])})
+      .forEach(([name,value])=>mark.setAttribute(name,value));
+  };
+  overlay.onpointercancel=()=>{initial=null;mark.setAttribute('width','0');};
+  overlay.onpointerup=ev=>{
+    if(!initial)return;
+    const [x,y]=locate(ev),[a,b]=initial,k=scale*meta.user_unit;
+    initial=null;
+    if(Math.abs(x-a)<4||Math.abs(y-b)<4){mark.setAttribute('width','0');return;}
+    const bounds=meta.crop_box;
+    const bbox=[Math.max(bounds[0],left+Math.min(x,a)/k),Math.max(bounds[1],top-Math.max(y,b)/k),
+      Math.min(bounds[2],left+Math.max(x,a)/k),Math.min(bounds[3],top-Math.min(y,b)/k)];
+    state.manualPick=false;renderPdf();addManualResult(version,page,bbox);
+  };
+}
+function addManualResult(version,page,bbox) {
+  const {devices,measurements}=state.detail;
+  const labels=Object.fromEntries(Object.keys(metricLabels).filter(code=>code!=='Pin').map(code=>[code,metricLabel(code)]));
+  showForm('Добавить показатель · с. '+page,'<div class="form-grid">'+
+    '<label>Показатель'+sel('metric_name','Показатель',labels)+'</label>'+
+    '<label>Число как в PDF<input name="raw_value" required class="field" maxlength="120"></label>'+
+    '<label>Единица как в PDF<input name="raw_unit" class="field" maxlength="40"></label>'+
+    '<label>Единица для пересчёта<input name="metric_unit" class="field" maxlength="40" placeholder="При необходимости, например fraction"></label>'+
+    '<label>Происхождение'+sel('result_origin','Происхождение',origins)+'</label>'+
+    '<label>Агрегация'+sel('aggregation','Агрегация',aggregationLabels,'unknown')+'</label>'+
+    '<label>Прибор'+sel('device_id','Прибор',{'':'Не указан',...Object.fromEntries(devices.map(d=>[d.id,d.device_label]))})+'</label>'+
+    '<label>Измерение'+sel('measurement_id','Измерение',{'':'Не указано'})+'</label>'+
+    '<label class="wide">Цитата из выделения<textarea name="quote" rows="2" maxlength="1500"></textarea></label></div>'+
+    '<p><label><input name="confirmed" type="checkbox"> Подтверждаю по источнику</label></p>',async form=>{
+      const result=await api('/api/pdf/'+version+'/result',json({...Object.fromEntries(form),page,bbox,confirmed:form.has('confirmed')},'POST'));
+      await fetchLibrary();
+      location.hash='xray/'+version+'/'+result.id;
+    },{submit:'Добавить запись',message:'Запись добавлена'});
+  $('[name=device_id]',dialog).onchange=ev=>{
+    $('[name=measurement_id]',dialog).innerHTML=options({'':'Не указано',...Object.fromEntries(measurements
+      .filter(m=>m.device_id===ev.target.value).map(m=>[m.id,[m.measurement_type,m.scan_direction].filter(Boolean).join(' · ')]))});
+  };
+}
 function renderRecords() {
   const {results,sources,links,measurements,materials}=state.detail;
   const list=$('#record-list'), detail=$('#active-record');
   if(!list) return;
   const top=list.scrollTop;
-  list.innerHTML=results.map(r=>{
+  list.innerHTML=results.filter(r=>!state.reviewOnly||r.extraction_status.startsWith('Требует')).map(r=>{
     const label=metricLabel(r.metric_name);
     return '<div class="record '+(r.id===state.current?'active':'')+'" data-result="'+r.id+'" tabindex="0" role="button" aria-label="'+e([label,r.device_label,fmt(r.metric_value)].filter(Boolean).join(' · '))+'"><span><b>'+e(label)+'</b><small>'+e([r.device_label,scanLabels[r.scan_direction]||r.scan_direction,origins[r.result_origin]].filter(Boolean).join(' · '))+'</small></span><span>'+measurementValue(r)+' '+(r.extraction_status.startsWith('Требует')?badge('Проверить','warn'):'')+'</span></div>';
   }).join('')||empty('На этой публикации пока нет записей.');
@@ -536,22 +604,54 @@ function renderRecords() {
     ['Число приборов',r.n_devices],['Разброс',r.spread_value]
   ].filter(([,value])=>value!=null&&value!=='');
   detail.innerHTML='<div class="details"><h3>'+e(metricLabel(r.metric_name))+' · '+measurementValue(r)+'</h3>'+
-    (r.plot_id?'<p><a class="link" href="#graphs/'+r.pdf_version_id+'/'+r.plot_id+'">Приближённое значение по графику</a></p>':
+    (r.plot_id?'<p>Приближённое значение по графику</p>':
       '<p>В статье <b>'+e(r.raw_value)+' '+e(r.raw_unit)+'</b> · '+e(r.value_state)+'</p>')+'<p>'+resultBadge(r)+'</p>'+
     (context.length?'<dl class="result-context">'+context.map(([label,value])=>'<dt>'+e(label)+'</dt><dd>'+e(value)+'</dd>').join('')+'</dl>':'')+
-    (r.extraction_method==='local_ai_pdf_quote'?'<p>Найдено локальным ИИ. Проверьте связь показателя с источником.</p>':'')+
+    (extractionProviders[r.extraction_method]?'<p>Показатель распознан с помощью '+e(extractionProviders[r.extraction_method])+(r.extraction_status.startsWith('Требует')?'. Проверьте его связь с источником.':'.')+'</p>':'')+
     (r.formula?'<p>Расчёт · '+e(r.formula)+'</p>':'')+
     (r.calculation_inputs?.uncertainty!=null?'<p>Погрешность оцифровки · ±'+fmt(r.calculation_inputs.uncertainty)+' '+e(r.normalized_unit)+'</p>':'')+
     (r.calculation_inputs?.uncertainty_method?'<p>'+e(r.calculation_inputs.uncertainty_method)+'</p>':'')+
     (r.calculation_inputs?.reference?'<p>'+e(r.calculation_inputs.reference)+' · '+(r.calculation_inputs.coverage_confirmed?'диапазон подтверждён':'интеграл в пределах кривой, полнота диапазона не подтверждена')+'</p>':'')+
     (r.calculation_inputs?.error?'<p>'+e(r.calculation_inputs.error)+'</p>':'')+
     '<p>'+refs.map(s=>'<button class="icon-btn" data-focus-ref="'+s.id+'" title="'+e(s.source_fragment)+'">с. '+s.source_page+' · '+e(roles[s.fragment_role])+' · '+e(s.source_fragment?.slice(0,46)||'')+'</button>').join(' ')+'</p>'+
-    '<p><button class="primary" id="record-edit">'+i('pencil')+' Проверить и исправить</button></p></div>';
+    '<div class="row-actions"><button class="primary" id="record-edit">'+i('pencil')+' Проверить и исправить</button>'+removeResultButton(r)+'</div></div>';
   $('#record-edit').onclick=()=>editResult(r);
+  $('[data-remove-result]',detail).onclick=()=>confirmRemoveResult(r);
   $$('[data-focus-ref]').forEach(node=>node.onclick=()=>{
     const ref=sources.find(s=>s.id===node.dataset.focusRef);
     state.page=ref.source_page;state.currentRef=ref.id;state.roles.add(ref.fragment_role);renderPdf(true);showPdfOnPhone();
   });
+}
+function removePublicationButton(id) {
+  const busy=state.publications.some(p=>p.id===id&&p.processing_status==='processing');
+  return btn('trash','Удалить статью','data-remove-publication="'+e(id)+'" '+(busy?'disabled':''));
+}
+function confirmRemovePublication(publication) {
+  const count=state.publications.filter(p=>p.id===publication.id).length;
+  showForm('Удалить статью?','<p><strong>'+e(publication.title)+'</strong></p>'+
+    '<p>Будут удалены PDF и связанные с ними результаты, графики и замечания. Файлов PDF: '+count+'.</p>'+
+    '<p>Восстановить удалённые данные нельзя.</p>',async ()=>{
+      await api('/api/publication/'+encodeURIComponent(publication.id),{method:'DELETE'});
+      const wasInLibrary=$('#publication-rows')!==null;
+      if(!wasInLibrary) location.hash='#library';
+      await fetchLibrary();
+      if(wasInLibrary) refreshLibrary();
+      else await routeView(true);
+    },{submit:'Удалить статью',message:'Статья удалена'});
+}
+function removeResultButton(record) {
+  return '<button type="button" data-remove-result="'+e(record.id)+'">Удалить запись</button>';
+}
+function confirmRemoveResult(record) {
+  showForm('Удалить запись?','<p>'+e(metricLabel(record.metric_name))+' · '+measurementValue(record)+'</p>'+
+    '<p>Запись исчезнет из таблицы и проверок. Источник PDF сохранится.</p>',async ()=>{
+      await api('/api/result/'+record.id,{method:'DELETE'});
+      if(state.current===record.id) Object.assign(state,{current:null,currentRef:null});
+      if(location.hash==='#xray/'+record.pdf_version_id+'/'+record.id)
+        history.replaceState(null,'','#xray/'+record.pdf_version_id);
+      await fetchLibrary();
+      await routeView(true);
+    },{submit:'Удалить запись',message:'Запись удалена'});
 }
 function selectResult(id, jump=true) {
   if(!state.detail.results.some(r=>r.id===id))return;
@@ -591,7 +691,17 @@ function editResult(r) {
   $('[name=result_origin]',dialog).onchange=switchOrigin;switchOrigin();
   $('[name=device_id]',dialog).onchange=ev=>$('[name=measurement_id]',dialog).innerHTML=options({'':'Не указано',...measurementsFor(ev.target.value)});
 }
-function openUpload() {$('#upload-dialog').showModal();}
+function openUpload() {
+  const provider=state.cloud_automatic?null:cloudProviders[state.ai_provider];
+  const note=$('#cloud-extraction-note');
+  note.hidden=!provider;
+  $('#upload-cloud').checked=false;
+  $('span',note).textContent=cloudConsent(provider);
+  $('#upload-dialog').showModal();
+}
+function cloudConsent(provider) {
+  return provider?'Разрешаю отправлять в '+provider+' отдельные фрагменты '+(provider==='DeepSeek'?'текста и изображений PDF.':'текста PDF.'):'';
+}
 $('#upload-open').onclick=openUpload;
 $('#files').onchange=ev=>$('#file-count').textContent='Выбрано файлов: '+ev.target.files.length;
 const drop=$('#drop-zone');
@@ -602,6 +712,7 @@ $('#upload-form').onsubmit=async ev=>{
   ev.preventDefault();
   const button=$('button[type=submit]',ev.currentTarget),data=new FormData();
   for(const file of $('#files').files)data.append('files',file);
+  if(!$('#cloud-extraction-note').hidden&&$('#upload-cloud').checked)data.append('allow_cloud','1');
   button.disabled=true;
   try {
     const entries=await api('/api/upload',{method:'POST',body:data});
@@ -613,283 +724,29 @@ $('#upload-form').onsubmit=async ev=>{
 };
 document.addEventListener('click',async ev=>{
   const close=ev.target.closest('[data-close]');if(close){$('#'+close.dataset.close).close();return;}
+  const remove=ev.target.closest('[data-remove-publication]');
+  if(remove) {
+    const publication=state.publications.find(p=>p.id===remove.dataset.removePublication);
+    if(publication&&!remove.disabled) confirmRemovePublication(publication);
+    return;
+  }
   const retry=ev.target.closest('[data-retry]');if(!retry)return;
+  const provider=state.cloud_automatic?null:cloudProviders[state.ai_provider];
+  if(provider) {
+    const version=retry.dataset.retry;
+    showForm('Повторить обработку','<p><label><input name="allow_cloud" type="checkbox"> '+e(cloudConsent(provider))+'</label></p>',
+      async form=>{await api('/api/pdf/'+version+'/retry',json({allow_cloud:form.has('allow_cloud')},'POST'));
+        await fetchLibrary();await routeView(true);schedule();},
+      {submit:'Запустить обработку',message:'Обработка поставлена в очередь'});
+    return;
+  }
   retry.disabled=true;
   try {
     await api('/api/pdf/'+retry.dataset.retry+'/retry',{method:'POST'});await fetchLibrary();await routeView(true);schedule();toast('Обработка поставлена в очередь');
   } catch(ex){toast(ex.message);retry.disabled=false;}
 });
-const graphTypes = {JV:'Вольт-амперная характеристика',EQE:'Квантовая эффективность',
-  PCE_vs_param:'КПД от параметра', thermal:'Термообработка', stability:'Стабильность', scatter:'Точечная диаграмма'};
-const digitizationLabels = {raster_figure:'Изображение из PDF',vector_pdf:'Векторная серия',manual_pending:'Ожидает оцифровки',
-  manual_calibration:'Ручная калибровка',manual_points:'Ручная оцифровка'};
-function plotResults(detail,plot) {
-  if(!plot)return '';
-  const results=detail.results.filter(r=>r.plot_id===plot.id&&r.normalized_value!=null);
-  if(!results.length)return ['JV','EQE','stability'].includes(plot.plot_type)
-    ?'<p class="warning">Показатели пока не рассчитаны. Проверьте калибровку, единицы осей и нужный участок кривой.</p>':'';
-  const entries=results.map(r=>'<a class="button" href="#xray/'+r.pdf_version_id+'/'+r.id+'">'+
-    e(metricLabel(r.metric_name))+' · ≈ '+measurementValue(r)+'</a>').join('');
-  return '<section class="card toolbar graph-results"><strong>Показатели по графику</strong>'+entries+'</section>';
-}
-function graphDefaults(detail) {
-  return {source_page:1,plot_type:'JV',plot_bbox:null,axes:{x:{scale:'linear'},y:{scale:'linear'}},points:[],
-          series_label:'Новая серия', pdf_version_id:detail.pdf.id};
-}
-function graphView(requested) {
-  const detail=state.graphDetail, pdf=detail.pdf;
-  const selected=detail.plots.find(p=>p.id===requested) || (!requested && detail.plots[0]);
-  const sourceFigure=selected&&detail.sources.find(s=>s.source_type==='figure'&&s.source_page===selected.source_page&&String(s.bbox)===String(selected.plot_bbox));
-  const pdfLink='#xray/'+pdf.id+(sourceFigure?'/ref,'+sourceFigure.id:'');
-  const draft=selected?structuredClone(selected):graphDefaults(detail);
-  if(!selected && requested==='new' && state.newGraphFrom) {
-    const from=detail.plots.find(p=>p.id===state.newGraphFrom);
-    if(from) Object.assign(draft,{source_page:from.source_page,plot_type:from.plot_type,plot_bbox:from.plot_bbox,
-                                  axes:structuredClone(from.axes),source_figure:from.source_figure,panel_id:from.panel_id});
-    state.newGraphFrom=null;
-  }
-  let tool='add', mark=null, firstCorner=null, selectedPoint=null, dragging=null;
-  main.innerHTML='<p><a class="link" href="#graphs">Публикации с графиками</a></p>'+
-    pageIntro('Graph Hunter',e(detail.publication.title),'<a class="button" href="'+e(pdfLink)+'">'+i('scan')+(sourceFigure?' Рисунок в PDF':' PDF X-Ray')+'</a>')+
-    '<div class="card toolbar graph-nav">'+sel('graph-series','Серия графика',{'new':'Новая серия',...Object.fromEntries(detail.plots.map(p=>[p.id,graphTypes[p.plot_type]+' · рис. '+(p.source_figure||'—')+(p.panel_id?'('+p.panel_id+')':'')+' · с. '+p.source_page+' · '+p.series_label]))},selected?.id || 'new')+
-    '<button id="new-plot">'+i('plus')+' Новая серия</button>'+badge(selected?.digitization_method==='raster_figure'?'Ожидает оцифровки':'Приближённые данные','warn')+
-    (selected?'<span class="muted-text push">'+e(digitizationLabels[selected.digitization_method]||selected.digitization_method)+'</span>':'')+'</div>'+
-    (selected?.digitization_method==='raster_figure'?
-      '<p class="warning">Найден исходный рисунок. Если в нём несколько графиков, выделите нужный через «Задать область», затем укажите шкалы и добавьте точки.</p>':plotResults(detail,selected))+
-    '<div class="graph-grid"><section class="card graph-card"><div class="graph-head"><h2>Оригинальный график</h2>'+
-    '<span class="subtle" id="graph-source-page"></span></div><div class="toolbar">'+
-    '<button id="region-tool">'+i('scan')+' Задать область</button><button id="add-tool">'+i('plus')+' Добавить точки</button>'+
-    '<button id="move-tool">'+i('pencil')+' Перетащить</button><button id="remove-tool">'+i('x')+' Удалить точки</button>'+
-    '</div><div id="graph-instructions" class="graph-hint"></div><div class="graph-preview" id="source-plot"></div>'+
-    '<div class="graph-caption">'+e(draft.caption_text||'')+(draft.legend_text?'<p>Легенда · '+e(draft.legend_text)+'</p>':'')+'</div></section>'+
-    '<section class="card graph-card"><div class="graph-head"><h2>Реконструкция</h2><span id="point-count" class="badge violet"></span></div>'+
-    '<div class="graph-preview" id="physical-plot"></div><div id="point-detail" class="graph-hint"></div>'+
-    '<div class="graph-caption"><strong>Погрешность</strong><p>'+e(draft.uncertainty_method||'Оценка ожидает калибровки.')+'</p>'+
-    (draft.uncertainty?'<p class="values">±'+fmt(draft.uncertainty.x)+' '+e(draft.axes.x.unit)+' · ±'+fmt(draft.uncertainty.y)+' '+e(draft.axes.y.unit)+'</p>':'')+'</div></section></div>'+
-    '<section class="card calibration"><div class="graph-head"><div><h2>Калибровка и привязка</h2><p>Изменение шкалы пересчитывает физические координаты из исходных точек PDF.</p></div>'+
-    '<div class="row-actions">'+(selected?'<a class="button" href="/api/plot/'+draft.id+'/export/csv" download>'+i('download')+' CSV</a><a class="button" href="/api/plot/'+draft.id+'/export/xlsx" download>'+i('download')+' XLSX</a>':'')+
-    (selected&&['JV','EQE','stability'].includes(draft.plot_type)?'<button id="plot-calculate">'+({JV:'Извлечь показатели из ВАХ',EQE:'Рассчитать плотность тока по спектру',stability:'Рассчитать время до 80% эффективности'}[draft.plot_type])+'</button>':'')+
-    '<button class="primary" id="plot-save">'+i('check')+' Сохранить серию</button></div></div>'+
-    '<div id="calibration-fields"></div></section>';
-  const source=$('#source-plot'), reconstruction=$('#physical-plot');
-  const controlMap=Object.fromEntries(detail.devices.map(d=>[d.id,d.device_label]));
-  const measurementOptions=id=>Object.fromEntries(detail.measurements.filter(m=>m.device_id===id).map(m=>[m.id,[m.measurement_type,m.scan_direction].filter(Boolean).join(' · ')]));
-  const orientation=lbl=>lbl==='x'?'Ось X':'Ось Y';
-  function fields() {
-    $('#calibration-fields').innerHTML='<div class="cal-meta"><label>Страница'+sel('source_page','Страница графика',Object.fromEntries(pdf.pages.map(p=>[String(p.page),'Страница '+p.page])),String(draft.source_page))+'</label>'+
-      '<label>Тип графика'+sel('plot_type','Тип графика',graphTypes,draft.plot_type)+'</label>'+
-      '<label>Серия<input class="field" name="series_label" value="'+e(draft.series_label)+'"></label>'+
-      '<label>Рисунок<input class="field" name="source_figure" value="'+e(draft.source_figure)+'"></label>'+
-      '<label>Панель<input class="field" name="panel_id" value="'+e(draft.panel_id)+'"></label>'+
-      '<label>Легенда<input class="field" name="legend_text" value="'+e(draft.legend_text)+'"></label>'+
-      '<label>Прибор'+sel('device_id','Прибор серии',{'':'Не указан',...controlMap},draft.device_id)+'</label>'+
-      '<label>Измерение'+sel('measurement_id','Измерение серии',{'':'Не указано',...measurementOptions(draft.device_id)},draft.measurement_id)+'</label></div>'+
-      ['x','y'].map(axis=>{
-        const data=draft.axes[axis], u=axis.toUpperCase();
-        return '<div class="axis-fields"><h3>'+orientation(axis)+'</h3>'+sel('scale-'+axis,'Шкала '+u,{linear:'Линейная',log:'Логарифмическая'},data.scale)+
-        '<label>Название<input class="field" name="label-'+axis+'" value="'+e(data.label)+'"></label>'+
-        '<label>Единица<input class="field" name="unit-'+axis+'" value="'+e(data.unit)+'"></label>'+
-        ['0','1'].map((index)=>'<label>PDF '+(Number(index)+1)+'<div class="input-group"><input class="field" aria-label="Координата '+u+(+index+1)+'" name="p'+index+'-'+axis+'" type="number" step="any" value="'+e(data['p'+index])+'">'+
-          btn('scan','Выбрать отметку '+u+(+index+1),'data-mark="'+axis+',p'+index+'"')+'</div></label>'+
-          '<label>Значение '+(Number(index)+1)+'<input class="field" aria-label="Значение '+u+(+index+1)+'" name="v'+index+'-'+axis+'" type="number" step="any" value="'+e(data['v'+index])+'"></label>').join('')+'</div>';
-      }).join('');
-    $$('#calibration-fields input,#calibration-fields select').forEach(field=>field.oninput=ev=>{
-      const {name,value}=ev.target;
-      if(name.includes('-')){
-        const [prop,axis]=name.split('-'); draft.axes[axis][prop]=ev.target.type==='number'?(value===''?null:Number(value)):value;
-      } else if(name==='source_page') {
-        Object.assign(draft,{source_page:Number(value),plot_bbox:null,points:[]}); selectedPoint=null;firstCorner=null;
-        if(tool!=='region')setTool('region');
-        renderSource();
-      } else {
-        draft[name]=value;
-        if(name==='device_id'){
-          draft.measurement_id=null;
-          $('[name=measurement_id]').innerHTML=options({'':'Не указано',...measurementOptions(value)});
-        }
-      }
-      renderPhysical();
-    });
-    $$('[data-mark]').forEach(b=>b.onclick=()=>{
-      if(!draft.plot_bbox){toast('Сначала задайте область построения');return;}
-      mark=b.dataset.mark.split(',');setTool('mark');
-    });
-  }
-  function setTool(next) {
-    tool=next;if(tool!=='region')firstCorner=null;
-    const hint={add:'Клик по оригиналу добавляет точку в серию.',move:'Потяните точку, чтобы изменить её координаты.',remove:'Клик по точке удаляет её.',
-      region:'Отметьте два противоположных угла области построения на странице.',mark:'Клик по изображению задаёт координату отметки шкалы.'};
-    $('#graph-instructions').textContent=hint[tool];
-    ['region','add','move','remove'].forEach(name=>$('#'+name+'-tool').classList.toggle('active-control',name===tool));
-    renderSource();
-  }
-  function project(axis,p) {
-    const {p0,p1,v0,v1,scale}=axis;
-    if([p0,p1,v0,v1].some(v=>v==null)||p0===p1||v0===v1||(scale==='log'&&(v0<=0||v1<=0)))return null;
-    const t=(p-p0)/(p1-p0);
-    const value=scale==='log'?Math.exp(Math.log(v0)+t*(Math.log(v1)-Math.log(v0))):v0+t*(v1-v0);
-    return Number.isFinite(value)?value:null;
-  }
-  function renderSource() {
-    const meta=pdf.pages[draft.source_page-1], full=meta.crop_box;
-    const box=tool==='region'||!draft.plot_bbox?full:draft.plot_bbox;
-    const w=box[2]-box[0],h=box[3]-box[1];
-    const pointDots=draft.points.map((p,n)=>'<circle data-graph-point="'+n+'" cx="'+(p.px-box[0])+'" cy="'+(box[3]-p.py)+'" r="'+Math.max(2,w/130)+'" class="'+(selectedPoint===n?'dot-selected':'')+'"/>').join('');
-    const existing=tool==='region'&&draft.plot_bbox?'<rect x="'+(draft.plot_bbox[0]-box[0])+'" y="'+(box[3]-draft.plot_bbox[3])+'" width="'+(draft.plot_bbox[2]-draft.plot_bbox[0])+'" height="'+(draft.plot_bbox[3]-draft.plot_bbox[1])+'" class="plot-region"/>':'';
-    const marker=firstCorner?'<circle cx="'+(firstCorner[0]-box[0])+'" cy="'+(box[3]-firstCorner[1])+'" r="3"/>':'';
-    const oldCrop=selected&&selected.source_page===draft.source_page&&String(selected.plot_bbox)===String(box)&&selected.crop_image;
-    const renderedPage='/api/pdf/'+pdf.id+'/page/'+draft.source_page+'?w=1500';
-    const image=oldCrop?'<img src="/api/plot/'+selected.id+'/image" alt="Вырезка исходного графика">':
-      '<img src="'+renderedPage+'" alt="Страница оригинала" style="width:'+((full[2]-full[0])/w*100)+'%;height:'+((full[3]-full[1])/h*100)+'%;left:'+((full[0]-box[0])/w*100)+'%;top:'+((box[3]-full[3])/h*100)+'%">';
-    source.innerHTML='<div class="graph-image" style="aspect-ratio:'+w+'/'+h+'">'+image+
-      '<svg id="source-overlay" data-graph-tool="'+tool+'" viewBox="0 0 '+w+' '+h+'" aria-label="Координаты оригинального графика">'+existing+pointDots+marker+'</svg></div>';
-    $('#graph-source-page').textContent='Страница '+draft.source_page+(draft.source_figure?' · рис. '+draft.source_figure:'');
-    const overlay=$('#source-overlay');
-    const coords=ev=>{
-      const b=overlay.getBoundingClientRect();
-      return [box[0]+Math.max(0,Math.min(1,(ev.clientX-b.x)/b.width))*w,box[3]-Math.max(0,Math.min(1,(ev.clientY-b.y)/b.height))*h];
-    };
-    function applyTool(ev) {
-      const [x,y]=coords(ev), index=ev.target.dataset.graphPoint;
-      if(tool==='region') {
-        if(!firstCorner){firstCorner=[x,y];renderSource();return;}
-        const region=[Math.min(x,firstCorner[0]),Math.min(y,firstCorner[1]),Math.max(x,firstCorner[0]),Math.max(y,firstCorner[1])];
-        if(region[2]-region[0]<3||region[3]-region[1]<3){toast('Выберите два разных угла');return;}
-        draft.plot_bbox=region;
-        draft.points=draft.points.filter(p=>p.px>=region[0]&&p.px<=region[2]&&p.py>=region[1]&&p.py<=region[3]);
-        draft.axes.x.p0=region[0];draft.axes.x.p1=region[2];draft.axes.y.p0=region[1];draft.axes.y.p1=region[3];
-        fields();setTool('add');
-      } else if(tool==='mark'&&mark) {
-        draft.axes[mark[0]][mark[1]]=+(mark[0]==='x'?x:y).toFixed(4);
-        mark=null;fields();setTool('add');
-      } else if(tool==='add') {
-        if(!draft.plot_bbox){setTool('region');return;}
-        if(index==null) draft.points.push({px:x,py:y});
-        selectedPoint=index==null?draft.points.length-1:Number(index);
-        renderSource();
-      } else if(index!=null&&tool==='remove') {
-        draft.points.splice(+index,1);selectedPoint=null;renderSource();
-      } else if(index!=null&&tool==='move') {
-        dragging=+index;selectedPoint=dragging;overlay.setPointerCapture(ev.pointerId);
-      }
-      renderPhysical();
-    }
-    let tap=null;
-    overlay.onpointerdown=ev=>{
-      if(ev.pointerType==='touch'&&tool!=='move') {
-        if(ev.isPrimary)tap={id:ev.pointerId,x:ev.clientX,y:ev.clientY};
-        return;
-      }
-      applyTool(ev);
-    };
-    overlay.onpointermove=ev=>{
-      if(dragging==null)return;
-      const [x,y]=coords(ev);
-      draft.points[dragging]={px:x,py:y};
-      const dot=$('[data-graph-point="'+dragging+'"]',overlay);
-      dot.setAttribute('cx',x-box[0]);dot.setAttribute('cy',box[3]-y);renderPhysical();
-    };
-    function finishDrag() {
-      if(dragging!=null){dragging=null;renderSource();renderPhysical();}
-    }
-    overlay.onpointerup=ev=>{
-      if(tap?.id===ev.pointerId&&Math.hypot(ev.clientX-tap.x,ev.clientY-tap.y)<9)applyTool(ev);
-      tap=null;
-      finishDrag();
-    };
-    overlay.onpointercancel=()=>{tap=null;finishDrag();};
-  }
-  function renderPhysical() {
-    const points=draft.points.map((p,n)=>({...p,x:project(draft.axes.x,p.px),y:project(draft.axes.y,p.py),n})).filter(p=>p.x!==null&&p.y!==null);
-    $('#point-count').textContent=draft.points.length+' точек';
-    const point=draft.points[selectedPoint];
-    $('#point-detail').innerHTML=point?'<span>PDF ('+fmt(point.px)+', '+fmt(point.py)+')</span> <a class="link" id="point-to-pdf" href="#xray/'+pdf.id+'/point,'+draft.source_page+','+point.px+','+point.py+'">К точке на PDF</a>':'Выберите точку, чтобы открыть её на PDF.';
-    if(!points.length){reconstruction.innerHTML=empty('Укажите две отметки для каждой оси и добавьте точки.');return;}
-    const {x:ax,y:ay}=draft.axes;
-    const xlo=Math.min(ax.v0,ax.v1,...points.map(p=>p.x)),xhi=Math.max(ax.v0,ax.v1,...points.map(p=>p.x));
-    const ylo=Math.min(ay.v0,ay.v1,...points.map(p=>p.y)),yhi=Math.max(ay.v0,ay.v1,...points.map(p=>p.y));
-    const txScale=ax.scale==='log'?Math.log:Number,tyScale=ay.scale==='log'?Math.log:Number;
-    const x=p=>51+416*(txScale(p)-txScale(xlo))/(txScale(xhi)-txScale(xlo));
-    const y=p=>232-203*(tyScale(p)-tyScale(ylo))/(tyScale(yhi)-tyScale(ylo));
-    const tick=(lo,hi,t,log)=>log?lo*(hi/lo)**t:lo+(hi-lo)*t;
-    let chart='<svg class="physical-svg" viewBox="0 0 510 272" aria-label="График оцифрованных данных">';
-    for(let index=0;index<=4;index++) {
-      const tx=tick(xlo,xhi,index/4,ax.scale==='log'),ty=tick(ylo,yhi,index/4,ay.scale==='log');
-      chart+='<path class="gridlines" d="M'+x(tx)+' 29V232 M51 '+y(ty)+'H467"/><text x="'+x(tx)+'" y="247" text-anchor="middle">'+e(Number(tx.toPrecision(4)))+'</text><text x="46" y="'+(y(ty)+4)+'" text-anchor="end">'+e(Number(ty.toPrecision(4)))+'</text>';
-    }
-    const coordinates=points.slice().sort((a,b)=>a.px-b.px).map(p=>x(p.x)+','+y(p.y));
-    reconstruction.innerHTML=chart+'<path class="chart-axes" d="M51 29V232H467"/><text x="54" y="18">'+e([ay.label,ay.unit].filter(Boolean).join(', ')||'Y')+'</text><text x="469" y="264" text-anchor="end">'+e([ax.label,ax.unit].filter(Boolean).join(', ')||'X')+'</text>'+
-      (draft.plot_type==='scatter'?'':'<polyline points="'+coordinates.join(' ')+'"/>')+
-      points.map(p=>'<circle tabindex="0" role="button" aria-label="Точка '+(p.n+1)+'" data-reconstruction="'+p.n+'" class="'+(selectedPoint===p.n?'dot-selected':'')+'" cx="'+x(p.x)+'" cy="'+y(p.y)+'" r="4"><title>'+e(fmt(p.x)+' '+(ax.unit||'')+' / '+fmt(p.y)+' '+(ay.unit||''))+'</title></circle>').join('')+'</svg>';
-    $$('[data-reconstruction]',reconstruction).forEach(el=>{
-      el.onclick=()=>{selectedPoint=+el.dataset.reconstruction;renderSource();renderPhysical();};
-      el.onkeydown=ev=>{if(ev.key==='Enter')el.click();};
-    });
-  }
-  $('[name=graph-series]').onchange=ev=>location.hash='graphs/'+pdf.id+'/'+ev.target.value;
-  $('#new-plot').onclick=()=>{state.newGraphFrom=selected?.id;if(requested==='new')graphView('new'); else location.hash='graphs/'+pdf.id+'/new';};
-  for(const name of ['region','add','move','remove']) $('#'+name+'-tool').onclick=()=>setTool(name);
-  const calculate=$('#plot-calculate');
-  if(calculate)calculate.onclick=()=>{
-    const kind=draft.plot_type, defaultMetric=kind==='EQE'?'Jsc_EQE':kind==='stability'?'T80':'Voc';
-    const description={EQE:'Использовать сохранённую кривую и локальный спектр ASTM G173-03 AM1.5G. Интеграл ограничен диапазоном оцифрованных длин волн.',
-      stability:'Использовать сохранённую кривую. Подтвердите, что по оси Y указана доля от начального КПД.',
-      JV:'Восстановить значение по пересечению нулевой отметки на сохранённой ВАХ.'}[kind];
-    showForm(kind==='JV'?'Показатель из ВАХ':metricLabel(defaultMetric),'<p>'+description+'</p>'+
-      (kind==='EQE'?'<p><label><input name="coverage" type="checkbox"> Подтверждаю полное покрытие значимого отклика для сравнения с Jsc по ВАХ</label></p>':'')+
-      '<div class="form-grid">'+(kind==='JV'?'<label>Показатель'+sel('metric','Показатель графика',Object.fromEntries(['Voc','Jsc','FF','PCE'].map(code=>[code,metricLabel(code)])))+'</label>':'')+
-      '<label>Агрегация'+sel('aggregation','Агрегация графика',aggregationLabels)+'</label></div>',async form=>{
-      const metric=form.get('metric')||defaultMetric;
-      const result=await api('/api/plot/'+draft.id+'/calculate',json({metric,aggregation:form.get('aggregation'),coverage_confirmed:form.has('coverage')},'POST'));
-      await fetchLibrary();location.hash='xray/'+pdf.id+'/'+result.id;
-    });
-  };
-  $('#plot-save').onclick=async ev=>{
-    const button=ev.currentTarget;button.disabled=true;
-    try {
-      const saved=await api(selected?'/api/plot/'+draft.id:'/api/pdf/'+pdf.id+'/plot',json(draft,selected?'PATCH':'POST'));
-      toast('Серия сохранена');
-      if(selected)await routeView(true);
-      else {await fetchLibrary();location.hash='graphs/'+pdf.id+'/'+saved.id;}
-    } catch(ex){toast(ex.message);}
-    finally{button.disabled=false;}
-  };
-  fields();setTool(draft.plot_bbox?'add':'region');renderPhysical();
-}
 const issueStatus = {open:['Замечание','warn'],resolved:['Устранено','good'],passed:['Согласовано','good'],
   not_applicable:['Проверка невозможна',''],superseded:['Заменено','']};
-async function detectiveView(token) {
-  const issues=await api('/api/issues');
-  if(token!==state.routeToken)return;
-  const rules=Object.fromEntries(issues.map(issue=>[issue.rule_code,issue.rule_name]));
-  const pubs=Object.fromEntries(issues.map(issue=>[issue.publication_id,issue.publication_title]));
-  main.innerHTML=pageIntro('Science Detective','Проверки физической согласованности с допусками и фрагментами PDF.',
-    '<a class="button" href="/api/export/validation_report.json" download>'+i('download')+' Отчёт JSON</a>')+
-    '<div class="stats detective-stats">'+stat('alert',issues.filter(v=>v.severity==='error'&&v.resolution_status==='open').length,'Ошибки','amber')+
-    stat('shield',issues.filter(v=>v.severity==='warning'&&v.resolution_status==='open').length,'Предупреждения','amber')+
-    stat('check',issues.filter(v=>['resolved','passed'].includes(v.resolution_status)).length,'Согласовано','mint')+
-    stat('file',issues.filter(v=>v.resolution_status==='not_applicable').length,'Проверка невозможна','blue')+'</div>'+
-    '<section class="card"><div class="toolbar" id="issue-filters">'+
-    sel('issue-status','Состояние проверки',{'':'Все проверки',...Object.fromEntries(Object.entries(issueStatus).map(([k,v])=>[k,v[0]]))},state.issueFilter?.status??'open')+
-    sel('issue-rule','Правило',{'':'Все правила',...rules},state.issueFilter?.rule||'')+
-    sel('issue-pub','Публикация',{'':'Все публикации',...pubs},state.issueFilter?.pub||'')+
-    '</div><div id="issues"></div></section>';
-  const status=$('[name=issue-status]'),rule=$('[name=issue-rule]'),pub=$('[name=issue-pub]');
-  const thresholdValue=(k,v)=>k==='relative'?fmt(v*100)+'%':typeof v==='number'?fmt(v):e(v??'—');
-  function renderIssues() {
-    state.issueFilter={status:status.value,rule:rule.value,pub:pub.value};
-    const matched=issues.filter(issue=>(!status.value||issue.resolution_status===status.value)&&(!pub.value||issue.publication_id===pub.value)&&(!rule.value||issue.rule_code===rule.value));
-    $('#issues').innerHTML=matched.map(issue=>'<article class="validation-row" data-issue="'+issue.rule_code+'" data-status="'+issue.resolution_status+'"><div class="issue-line"><div>'+
-      '<span class="rule-code">'+e(issue.rule_code)+'</span><h2>'+e(issue.rule_name)+'</h2><p>'+e(issue.publication_title)+'</p></div>'+
-      '<div class="issue-badges">'+(issue.severity==='error'?badge('Ошибка','bad'):issue.severity==='warning'?badge('Предупреждение','warn'):'')+tag(issueStatus,issue.resolution_status)+'</div></div>'+
-      '<p>'+e(issue.description)+'</p><div class="value-tags">'+issue.compared_values.map(v=>'<span><b>'+e(metricLabel(v.name))+'</b> '+(typeof v.value==='number'?fmt(v.value):e(v.value??'—'))+' '+e(v.unit)+'</span>').join('')+'</div>'+
-      (issue.threshold?'<div class="rule-threshold">Порог · '+Object.entries(issue.threshold).map(([k,v])=>e(({relative:'Относительный',absolute:'Абсолютный',min:'Минимум',max:'Максимум',denominator:'Делитель',unit:'Единица',max_exclusive:'Строго меньше',min_exclusive:'Строго больше',min_delta:'Мин. разность',max_delta:'Макс. разность',model_temperature_C:'Температура модели, °C'}[k])||k)+' '+thresholdValue(k,v)).join(' · ')+'</div>':'')+
-      (issue.hypothesis?'<p class="issue-hypothesis">Гипотеза для проверки · '+e(issue.hypothesis)+'</p>':'')+
-      (issue.sources.length?'<details class="issue-sources"><summary>Фрагменты PDF · '+issue.sources.length+'</summary>'+
-      issue.sources.map(s=>'<a class="link issue-source" href="'+e(s.href.slice(1))+'">с. '+s.source_page+' · '+e(roles[s.fragment_role]||s.source_type)+' · '+e(s.source_fragment||'Область графика')+'</a>').join('')+'</details>':'')+'</article>').join('')||empty('Проверок по выбранным условиям пока нет.');
-  }
-  $('#issue-filters').onchange=renderIssues;renderIssues();
-}
 const comparisonLabels={material_class:'Класс материала',device_type:'Тип прибора',metric_name:'Метрика',normalized_unit:'Единица',
   normalized_value:'Однозначные значения','AM1.5G 100 mW/cm²':'AM1.5G, 100 мВт/см²',active_area:'Активная площадь',area_definition:'Определение площади',
   aggregation:'Агрегация',scan_direction:'Направление развёртки',primary:'Происхождение',corpus:'Статус корпуса',certified:'Сертификация',
@@ -944,11 +801,13 @@ function exportView() {
 
 const dataNames={publications:'Публикации',materials:'Материалы',devices:'Приборы',layers:'Слои',measurements:'Измерения',results:'Результаты',issues:'Замечания'};
 function dataTabs(active) {return '<div class="comparison-tabs">'+Object.entries(dataNames).map(([k,v])=>'<a class="button '+(active===k?'active-control':'')+'" href="#results/'+k+'">'+v+'</a>').join('')+'</div>';}
-function dataTable(records,columns) {
+function dataTable(records,columns,canRemove=false) {
   if(!records.length)return empty('Нет записей.');
-  return tableHint+'<div class="table-scroll" tabindex="0" role="region" aria-label="Таблица данных"><table class="data-table"><thead><tr>'+columns.map(c=>'<th scope="col">'+e(fieldLabel(c))+'</th>').join('')+'</tr></thead><tbody>'+
-    records.map(r=>'<tr>'+columns.map(c=>{
-      const text=tableText(c,r[c]);
+  const fields=canRemove?[...columns.slice(0,5),'actions',...columns.slice(5)]:columns;
+  return tableHint+'<div class="table-scroll" tabindex="0" role="region" aria-label="Таблица данных"><table class="data-table"><thead><tr>'+fields.map(c=>'<th scope="col">'+(c==='actions'?'Действия':e(fieldLabel(c)))+'</th>').join('')+'</tr></thead><tbody>'+
+    records.map(r=>'<tr>'+fields.map(c=>{
+      if(c==='actions')return '<td>'+removeResultButton(r)+'</td>';
+      const text=c==='metric_value'&&r.range_min!=null?measurementNumber(r):tableText(c,r[c]);
       const content=(r.plot_id&&r[c]!=null&&['metric_value','normalized_value'].includes(c)?'≈ ':'')+e(text);
       const link=r.pdf_version_id && ['metric_name','metric_value','publication_code','source_page'].includes(c);
       return '<td class="'+(c==='metric_name'?'metric-cell':'')+'">'+(link?'<a class="link" href="#xray/'+e(r.pdf_version_id)+(r.metric_name?'/'+e(r.id):'')+'">'+content+'</a>':content)+'</td>';
@@ -956,7 +815,7 @@ function dataTable(records,columns) {
 }
 const tableValueLabels={
   corpus_status:Object.fromEntries(Object.entries(corpus).map(([key,[label]])=>[key,label])),
-  extraction_method:{local_ai_pdf_quote:'Локальный ИИ',pdf_text:'Текст PDF',geometry_table:'Таблица PDF',pdf_prose_context:'Текст с учётом контекста',plot_calculation:'Расчёт по графику'},
+  extraction_method:{...extractionProviders,manual_pdf:'Добавлено вручную из PDF',pdf_text:'Текст PDF',geometry_table:'Таблица PDF',pdf_prose_context:'Текст с учётом контекста',plot_calculation:'Расчёт по графику'},
   result_origin:origins, scan_direction:scanLabels, aggregation:aggregationLabels,
   device_role:{control:'Контрольный',target:'Исследуемый',record:'Рекордный'},
   severity:{error:'Ошибка',warning:'Предупреждение',info:'Информация',not_applicable:'Неприменимо'},

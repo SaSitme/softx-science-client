@@ -5,20 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#f4f9f8">
 <title>SoftX · NEXUS Science</title>
-<link rel="stylesheet" href="/style.css">
-<script src="/app.js" type="module"></script>
+<link rel="icon" type="image/svg+xml" href="/static/softx-logo.svg">
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/app.js?v=library" type="module"></script>
 </head>
 <body>
 <div class="layout">
   <aside class="sidebar">
-    <a class="brand" href="#library"><span class="brand-icon" data-icon="logo"></span><span><strong>SoftX<span class="brand-dot">.</span></strong><small>NEXUS SCIENCE</small></span></a>
+    <a class="brand" href="#library"><img src="/static/softx-logo.svg" width="40" height="40" alt=""><span><strong>SoftX<span class="brand-dot">.</span></strong><small>NEXUS SCIENCE</small></span></a>
     <div class="nav-label">РАБОЧАЯ ОБЛАСТЬ</div>
     <nav id="nav" aria-label="Разделы SoftX">
       <a href="#library" data-nav="library"><i data-icon="library"></i>Публикации</a>
       <a href="#results" data-nav="results"><i data-icon="database"></i>Данные</a>
       <a href="#xray" data-nav="xray"><i data-icon="scan"></i>PDF X-Ray</a>
-      <a href="#graphs" data-nav="graphs"><i data-icon="chart"></i>Graph Hunter</a>
-      <a href="#detective" data-nav="detective"><i data-icon="shield"></i>Science Detective</a>
       <a href="#compare" data-nav="compare"><i data-icon="compare"></i>Сопоставление</a>
       <div class="nav-label secondary-label">АРТЕФАКТЫ</div>
       <a href="#export" data-nav="export"><i data-icon="download"></i>Экспорт данных</a>
@@ -29,7 +28,7 @@
     <header class="top">
       <div class="breadcrumbs"><a href="#library" aria-label="Библиотека публикаций"><i data-icon="home"></i></a><span class="crumb">Рабочая область</span><i data-icon="chevron"></i><strong id="section-name">Публикации</strong></div>
       <form class="search top-search" id="global-search"><i data-icon="search"></i><input name="query" aria-label="Поиск по корпусу" placeholder="Поиск по публикациям, материалам, DOI, авторам…"><kbd aria-hidden="true"></kbd></form>
-      <div class="top-actions"><a class="top-issues" href="#detective" aria-label="Замечания" title="Замечания"><i data-icon="bell"></i></a><button id="upload-open" aria-label="Загрузить PDF"><i data-icon="upload"></i><span>Загрузить PDF</span></button></div>
+      <div class="top-actions"><button id="upload-open" aria-label="Загрузить PDF"><i data-icon="upload"></i><span>Загрузить PDF</span></button></div>
     </header>
     <main id="main"></main>
   </div>
@@ -37,6 +36,7 @@
 <dialog id="upload-dialog"><form id="upload-form">
   <div class="dialog-head"><h2>Загрузить публикации</h2><button type="button" class="icon-btn" aria-label="Закрыть" data-close="upload-dialog" data-icon="x"></button></div>
   <label id="drop-zone" class="drop-zone"><i data-icon="upload"></i><b>Выберите PDF или перетащите их сюда</b><span id="file-count">Можно загрузить несколько файлов</span><input type="file" accept=".pdf,application/pdf" multiple id="files" required></label>
+  <label id="cloud-extraction-note" class="warning" hidden><input type="checkbox" id="upload-cloud"><span></span></label>
   <div class="dialog-actions"><button type="button" data-close="upload-dialog">Отмена</button><button class="primary" type="submit">Обработать PDF</button></div>
 </form></dialog>
 <dialog id="edit-dialog"></dialog>

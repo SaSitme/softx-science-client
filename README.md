@@ -1,6 +1,6 @@
 # SoftX · NEXUS Science — клиент
 
-Веб-интерфейс SoftX для загрузки публикаций, PDF X-Ray, Graph Hunter, Science Detective, сопоставления и экспорта данных. Сервер Flask и инструкция по его запуску находятся в репозитории [softx-science](https://github.com/SaSitme/softx-science).
+Веб-интерфейс SoftX для загрузки публикаций, PDF X-Ray, сопоставления и экспорта данных. Клиент соответствует интерфейсу s0ftx.ru. Сервер Flask и инструкция по его запуску находятся в репозитории [softx-science](https://github.com/SaSitme/softx-science).
 
 ## Локальный запуск
 
