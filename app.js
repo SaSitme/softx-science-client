@@ -145,6 +145,7 @@ function schedule() {
     try {
       await fetchLibrary();
       if (route==='#library'||!route) refreshLibrary();
+      if (route==='#export') exportView();
       if (route==='#xray' && state.detail && ['queued','processing'].includes(state.detail.pdf.processing_status)) await routeView(true);
       schedule();
     } catch(ex) {toast(ex.message);}
@@ -803,10 +804,16 @@ async function compareView(token, mode='ordinary') {
   left.onchange=right.onchange=matrix;matrix();
 }
 function exportView() {
+  const pending = state.publications.filter(p=>['queued','processing'].includes(p.processing_status)).length;
+  const stale = state.publications.filter(p=>p.refresh_requested===state.extraction_revision
+    && p.extraction_revision<state.extraction_revision && !['queued','processing'].includes(p.processing_status)).length;
   main.innerHTML=pageIntro('Экспорт данных','Снимок базы с идентификаторами, связями между сущностями и ссылками на источники.')+
     '<div class="export-grid"><article class="card details"><span class="stat-icon" data-icon="table">'+icon('table')+'</span>'+
     '<h2>CSV для сдачи</h2><p>Семь таблиц по шаблону организаторов с идентификаторами публикаций из имён PDF.</p>'+
-    '<a class="button primary" href="/api/export/submission.zip" download>'+i('download')+' Скачать CSV для сдачи</a></article>'+
+    (pending ? '<p role="status">Обработка PDF · '+pending+'. Выгрузка будет доступна после завершения.</p>' :
+      (stale ? '<p class="warning">Для '+stale+' PDF обновление не завершилось. Проверьте статус в библиотеке.</p>' : '')+
+      '<a class="button primary" href="/api/export/submission.zip" download>'+i('download')+' Скачать CSV для сдачи</a>')+
+    '</article>'+
     '<article class="card details"><span class="stat-icon" data-icon="database">'+icon('database')+'</span>'+
     '<h2>Полный набор данных</h2><p>JSON, NDJSON, реляционные CSV и XLSX, исходные PDF и вырезки графиков.</p>'+
     '<a class="button" href="/api/export/dataset.zip" download>'+i('download')+' Скачать набор ZIP</a></article>'+
