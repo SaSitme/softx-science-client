@@ -62,8 +62,6 @@ p{line-height:1.5;margin-bottom:12px;color:var(--muted)}
   background-size:100% 100%,auto clamp(255px,20vw,320px);background-position:center,right center;background-repeat:no-repeat
 }
 .hero-copy{position:relative}
-.hero .eyebrow{display:inline-flex;align-items:center;gap:7px;border-radius:20px;padding:6px 12px;color:#155249;background:#e3fff7ad;font-size:.71rem;font-weight:800;margin-bottom:7px}
-.eyebrow svg{width:15px;height:15px}
 .hero h1{font-size:clamp(1.95rem,2.45vw,2.52rem);margin-bottom:8px}
 .hero p{color:#183e46;max-width:485px;font-size:.95rem;margin-bottom:13px}
 .hero .ghost{color:#07563e;border-color:#e1f9f0;background:#f2fffbeb;padding:11px 19px;border-radius:12px;box-shadow:0 6px 16px #15534623}

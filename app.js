@@ -41,6 +41,8 @@ const cloudProviders = {openai:'OpenAI',deepseek:'DeepSeek'};
 const extractionProviders = {openai_pdf_quote:'OpenAI',deepseek_pdf_quote:'DeepSeek',deepseek_vision:'DeepSeek (изображение)',local_ai_pdf_quote:'Локальный ИИ',local_ocr:'Локальный OCR'};
 const roles = {value:'Значение',unit:'Единица',sample_label:'Образец',condition:'Условие'};
 const metricLabels = {
+  retained_PCE:'Доля сохранённого КПД',
+  EQE:'Внешняя квантовая эффективность',
   PCE:'Коэффициент полезного действия',
   Voc:'Напряжение холостого хода',
   Jsc:'Плотность тока короткого замыкания',
@@ -51,6 +53,8 @@ const metricLabels = {
   Jsc_EQE:'Плотность тока короткого замыкания по внешней квантовой эффективности',
   T80:'Время снижения эффективности до 80%',
   Eg:'Ширина запрещённой зоны',
+  Nt:'Объёмная концентрация',
+  tau:'Характерное время',
   Pin:'Плотность мощности падающего света'
 };
 const metricLabel = code => Object.hasOwn(metricLabels,code)?`${metricLabels[code]} (${code})`:code;
@@ -206,7 +210,7 @@ const publicationViews = {
 function library() {
   const filters=state.filter;
   const classes=Object.fromEntries(state.publications.flatMap(p=>(p.material_class||'').split(',').filter(Boolean)).sort().map(v=>[v,v]));
-  main.innerHTML='<section class="hero"><div class="hero-copy"><div class="eyebrow">'+i('flask')+' ТОНКОПЛЁНОЧНАЯ ФОТОВОЛЬТАИКА</div><h1>Корпус публикаций</h1><p>Извлекайте данные солнечных элементов и проверяйте каждое значение по первоисточнику.</p><button class="ghost" id="hero-upload">'+i('upload')+' Загрузить публикации</button></div></section>'+
+  main.innerHTML='<section class="hero"><div class="hero-copy"><h1>Корпус публикаций</h1><p>Извлекайте данные солнечных элементов и проверяйте каждое значение по первоисточнику.</p><button class="ghost" id="hero-upload">'+i('upload')+' Загрузить публикации</button></div></section>'+
     '<div class="stats" id="stats"></div><div class="section-head"><div><h2>Библиотека публикаций</h2><p>PDF, результаты извлечения и решения по корпусу</p></div></div>'+
     '<div class="library-tabs" id="library-tabs" role="group" aria-label="Подборки публикаций">'+
     Object.entries(publicationViews).map(([key,[label,glyph]])=>'<button type="button" data-library-tab="'+key+'">'+i(glyph)+'<span>'+label+'</span> <span data-tab-count></span></button>').join('')+
