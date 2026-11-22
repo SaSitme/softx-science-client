@@ -80,7 +80,7 @@ const fieldLabels = {
   layer_order:'Порядок слоя', layer_function:'Функция слоя', layer_material:'Материал слоя',
   layer_thickness:'Толщина слоя', thickness_unit:'Единица толщины', deposition_method:'Метод нанесения',
   annealing_temperature:'Температура отжига', annealing_time:'Время отжига', atmosphere:'Атмосфера обработки',
-  measurement_type:'Тип измерения', spectrum:'Спектр освещения', light_intensity:'Интенсивность освещения',
+  device_ids:'Приборы', measurement_type:'Тип измерения', spectrum:'Спектр освещения', light_intensity:'Интенсивность освещения',
   light_intensity_unit:'Единица интенсивности', intensity_source_id:'Источник интенсивности освещения',
   scan_rate:'Скорость развёртки', mask_used:'Использована маска', certified:'Сертификация', temperature:'Температура измерения',
   stability_protocol:'Протокол испытания стабильности', stress_conditions:'Условия испытания',
@@ -394,7 +394,11 @@ function measurementNumber(r) {
 }
 function measurementValue(r) {return e(measurementNumber(r))+' '+e(r.normalized_unit??r.metric_unit);}
 function xray() {
-  const {pdf,publication,devices,measurements,layers,materials,audit}=state.detail;
+  const {pdf,publication,devices,measurements,layers,materials,audit,sources}=state.detail;
+  const sourceButton = row => {
+    const ref = sources.find(source => (row.source_ids || []).includes(source.id));
+    return ref ? ' <button class="icon-btn" data-entity-source="'+e(ref.id)+'" title="'+e(ref.source_fragment)+'">с. '+ref.source_page+'</button>' : '';
+  };
   const actions='<div class="row-actions"><a class="button" href="/api/pdf/'+pdf.id+'/original" target="_blank" rel="noopener">'+i('file')+' Оригинал PDF</a>'+
     '<button id="corpus-edit">'+i('pencil')+' Решение по корпусу</button>'+btn('rotate','Повторить обработку','data-retry="'+pdf.id+'"')+removePublicationButton(publication.id)+'</div>';
   main.innerHTML='<p><a href="#library" class="link">Библиотека публикаций</a></p>'+
@@ -412,10 +416,10 @@ function xray() {
     '<section class="card records-panel"><div class="toolbar"><strong>Извлечённые записи</strong><span class="badge violet">'+state.detail.results.length+
     '</span><label><input type="checkbox" id="review-only" '+(state.reviewOnly?'checked':'')+'> Только требуют проверки</label></div><div id="record-list" class="record-list"></div><div id="active-record"></div></section></div>':'')+
     '<details class="card details"><summary>Приборы, материалы и измерения · '+devices.length+' / '+materials.length+' / '+measurements.length+'</summary>'+
-    materials.map(m=>'<p><b>'+e(m.material_class)+'</b> · '+e(m.formula_normalized||m.material_name_raw)+(m.bandgap_value==null?'':' · '+metricLabel('Eg')+' '+fmt(m.bandgap_value)+' '+e(m.bandgap_unit))+'</p>').join('')+
+    materials.map(m=>'<p><b>'+e(m.material_class)+'</b> · '+e(m.material_name_raw||m.formula_normalized)+(m.bandgap_value==null?'':' · '+metricLabel('Eg')+' '+fmt(m.bandgap_value)+' '+e(m.bandgap_unit))+'</p>').join('')+
     devices.map(d=>'<details><summary>'+e(d.device_label)+' · '+e([d.device_role,d.architecture,d.active_area&&d.active_area+' '+d.area_unit].filter(Boolean).join(' · '))+'</summary>'+
-      layers.filter(l=>l.device_id===d.id).map(l=>'<p>'+e([l.layer_order,l.layer_function,l.layer_material,l.layer_thickness&&l.layer_thickness+' '+l.thickness_unit,l.deposition_method].filter(Boolean).join(' · '))+'</p>').join('')+
-      measurements.filter(m=>m.device_id===d.id).map(m=>'<p>'+e([m.measurement_type,m.scan_direction,m.spectrum,m.light_intensity&&m.light_intensity+' '+m.light_intensity_unit,m.certified?'Сертифицировано':null].filter(Boolean).join(' · '))+'</p>').join('')+'</details>').join('')+'</details>'+
+      layers.filter(l=>l.device_id===d.id).map(l=>'<p>'+e([l.layer_order,l.layer_function,l.layer_material,l.layer_thickness&&l.layer_thickness+' '+l.thickness_unit,l.deposition_method,[l.annealing_temperature,l.annealing_time].filter(Boolean).join(' / '),l.atmosphere].filter(Boolean).join(' · '))+sourceButton(l)+'</p>').join('')+
+      measurements.filter(m=>(m.device_ids||[m.device_id]).includes(d.id)).map(m=>'<p>'+e([m.measurement_type,m.scan_direction,m.spectrum,m.light_intensity&&m.light_intensity+' '+m.light_intensity_unit,m.scan_rate,m.mask_used?'С маской':null,m.certified?'Сертифицировано':null].filter(Boolean).join(' · '))+sourceButton(m)+'</p>').join('')+'</details>').join('')+'</details>'+
     '<details class="card details"><summary>История изменений · '+audit.length+'</summary>'+tableHint+'<div class="table-scroll" tabindex="0" role="region" aria-label="Таблица истории изменений"><table><thead><tr><th>Поле</th><th>Было</th><th>Стало</th><th>Автор</th><th>UTC</th></tr></thead><tbody>'+
     audit.map(a=>'<tr><td>'+e(fieldLabel(a.field_name))+'</td><td>'+e(a.old_value)+'</td><td>'+e(a.new_value)+'</td><td>'+e(a.author)+'</td><td>'+e(a.timestamp)+'</td></tr>').join('')+'</tbody></table></div></details>';
   $('#corpus-edit').onclick=()=>showForm('Решение по корпусу','<div class="form-grid"><label class="wide">Статус'+sel('corpus_status','Статус корпуса',Object.fromEntries(Object.entries(corpus).map(([k,v])=>[k,v[0]])),publication.corpus_status)+
@@ -423,6 +427,12 @@ function xray() {
       await api('/api/publication/'+publication.id,json(Object.fromEntries(form))); await fetchLibrary(); await routeView(true); schedule();
     });
   if(!pdf.pages.length) return;
+  $$('[data-entity-source]').forEach(button=>button.onclick=()=>{
+    const ref=sources.find(source=>source.id===button.dataset.entitySource);
+    state.page=ref.source_page;state.currentRef=ref.id;state.graphPoint=null;
+    state.roles.add(ref.fragment_role);renderPdf(true);showPdfOnPhone();
+    $('#pdf-scroll')?.scrollIntoView({block:'nearest'});
+  });
   $('#pdf-prev').onclick=()=>{state.page=Math.max(1,state.page-1);state.graphPoint=null;renderPdf();};
   $('#pdf-next').onclick=()=>{state.page=Math.min(pdf.pages.length,state.page+1);state.graphPoint=null;renderPdf();};
   $('#pdf-minus').onclick=()=>{state.zoom=Math.max(.35,state.zoom-.2);renderPdf();};
@@ -577,7 +587,7 @@ function addManualResult(version,page,bbox) {
     },{submit:'Добавить запись',message:'Запись добавлена'});
   $('[name=device_id]',dialog).onchange=ev=>{
     $('[name=measurement_id]',dialog).innerHTML=options({'':'Не указано',...Object.fromEntries(measurements
-      .filter(m=>m.device_id===ev.target.value).map(m=>[m.id,[m.measurement_type,m.scan_direction].filter(Boolean).join(' · ')]))});
+      .filter(m=>(m.device_ids||[m.device_id]).includes(ev.target.value)).map(m=>[m.id,[m.measurement_type,m.scan_direction].filter(Boolean).join(' · ')]))});
   };
 }
 function renderRecords() {
@@ -676,7 +686,7 @@ function selectResult(id, jump=true) {
 function editResult(r) {
   const {devices,measurements}=state.detail;
   const deviceOptions=Object.fromEntries(devices.map(d=>[d.id,d.device_label+(r.candidate_device_ids.includes(d.id)?' · кандидат':'')]));
-  const measurementsFor=id=>Object.fromEntries(measurements.filter(m=>m.device_id===id).map(m=>[m.id,(m.measurement_type||'Измерение')+' · '+(m.scan_direction||'ход не указан')+(r.candidate_measurement_ids.includes(m.id)?' · кандидат':'')]));
+  const measurementsFor=id=>Object.fromEntries(measurements.filter(m=>(m.device_ids||[m.device_id]).includes(id)).map(m=>[m.id,(m.measurement_type||'Измерение')+' · '+(m.scan_direction||'ход не указан')+(r.candidate_measurement_ids.includes(m.id)?' · кандидат':'')]));
   showForm('Верификация · '+e(metricLabel(r.metric_name)),'<p>В публикации: <b>'+e(r.raw_value)+' '+e(r.raw_unit)+'</b></p><div class="form-grid">'+
     '<label>Значение<input class="field" name="metric_value" type="number" step="any" value="'+e(r.metric_value)+'"></label>'+
     '<label>Единица<input class="field" name="metric_unit" value="'+e(r.metric_unit)+'"></label>'+
@@ -794,7 +804,10 @@ async function compareView(token, mode='ordinary') {
 }
 function exportView() {
   main.innerHTML=pageIntro('Экспорт данных','Снимок базы с идентификаторами, связями между сущностями и ссылками на источники.')+
-    '<div class="export-grid"><article class="card details"><span class="stat-icon" data-icon="database">'+icon('database')+'</span>'+
+    '<div class="export-grid"><article class="card details"><span class="stat-icon" data-icon="table">'+icon('table')+'</span>'+
+    '<h2>CSV для сдачи</h2><p>Семь таблиц по шаблону организаторов с идентификаторами публикаций из имён PDF.</p>'+
+    '<a class="button primary" href="/api/export/submission.zip" download>'+i('download')+' Скачать CSV для сдачи</a></article>'+
+    '<article class="card details"><span class="stat-icon" data-icon="database">'+icon('database')+'</span>'+
     '<h2>Полный набор данных</h2><p>JSON, NDJSON, реляционные CSV и XLSX, исходные PDF и вырезки графиков.</p>'+
     '<a class="button" href="/api/export/dataset.zip" download>'+i('download')+' Скачать набор ZIP</a></article>'+
     '<article class="card details"><span class="stat-icon amber" data-icon="shield">'+icon('shield')+'</span><h2>Отчёт о проверках</h2>'+
